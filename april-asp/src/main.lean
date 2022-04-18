@@ -2,9 +2,10 @@ import data.nat.basic -- Some basic simps
 -- This is here so I don't forget how to trace
 -- set_option trace.simplify.rewrite true
 
-#check nat.one_ne_zero
+set_option trace.simplify true
 
 def atom := nat
+instance : inhabited atom := nat.inhabited
 inductive tv
 | vtrue
 | vundef
@@ -14,11 +15,11 @@ inductive tv
     split, all_goals { assume h, cases a; cases b; simp at |- h; contradiction },
 end
 
-@[reducible] def tv_le (a b : tv) : Prop := nat.le (tv_nat a) (tv_nat b)
-@[reducible] def tv_lt (a b : tv) : Prop := nat.lt (tv_nat a) (tv_nat b)
-instance : has_le tv := ⟨tv_le⟩
-instance : has_lt tv := ⟨tv_lt⟩
 namespace tv
+@[reducible] def le (a b : tv) : Prop := nat.le (tv_nat a) (tv_nat b)
+@[reducible] def lt (a b : tv) : Prop := nat.lt (tv_nat a) (tv_nat b)
+instance : has_le tv := ⟨le⟩
+instance : has_lt tv := ⟨lt⟩
 @[refl] lemma le_refl (a : tv) : a <= a := nat.le_refl (tv_nat a)
 @[trans] lemma le_trans {n m k : tv} (h1 : n ≤ m) : m ≤ k → n ≤ k := λ h2, nat.le_trans h1 h2
 lemma le_antisymm {n m : tv} (h1 : n ≤ m) : m ≤ n → n = m :=  λ h2, tv_unnat_eq.mp (nat.le_antisymm h1 h2)
@@ -28,12 +29,12 @@ instance decidable_lt : ∀ a b : tv, decidable (a < b) := λ a b, nat.decidable
 instance decidable_le : ∀ a b : tv, decidable (a ≤ b):= λ a b, nat.decidable_le (tv_nat a) (tv_nat b)
 instance decidable_eq : decidable_eq tv := λ a b, by { rw <- tv_unnat_eq, apply nat.decidable_eq }
 instance linear_order : linear_order tv :=
-{ le := tv_le,
+{ le := le,
   le_refl := tv.le_refl,
   le_trans := @tv.le_trans,
   le_antisymm := @tv.le_antisymm,
   le_total := @tv.le_total,
-  lt := tv_lt,
+  lt := lt,
   lt_iff_le_not_le := @tv.lt_iff_le_not_le,
   decidable_le               := tv.decidable_le,
   -- These fields are optional but easy enough to define
@@ -46,18 +47,54 @@ example (a b : tv) (h : a <= b) : tv_nat a <= tv_nat b := h
 
 
 
-
-
-
 def I := atom -> tv
-inductive I_less_than_or_equal (i1 : I) (i2 : I) : Prop
-| mk (p : Π a : atom, (i1 a) <= (i2 a)) : I_less_than_or_equal
+-- inductive I_less_than_or_equal (i1 : I) (i2 : I) : Prop
+-- | mk (p : Π a : atom, (i1 a) <= (i2 a)) : I_less_than_or_equal
+
+structure I_less_than_or_equal  (i1 : I) (i2 : I) : Prop :=
+  (p : Π a : atom, (i1 a) <= (i2 a))
+
 instance : has_le I := ⟨I_less_than_or_equal⟩
-inductive I_less_than (i1 : I) (i2 : I) : Prop
-| mk (p : i1 <= i2) (q : ∃a : atom, (i1 a) < (i2 a)) : I_less_than
+structure I_less_than (i1 : I) (i2 : I) : Prop :=
+  (p : i1 <= i2) (q : ∃a : atom, (i1 a) < (i2 a))
 instance : has_lt I := ⟨I_less_than⟩ 
+lemma I_not_lt_exists {i1 i2 : I} (h : ¬i1 <= i2) : ∃ a : atom, (i2 a) < (i1 a) := begin
+  by_contradiction exis,
+  rw not_exists at exis,
+  -- Not sure why I can't write simp as `rw not_lt at exis`
+  -- not_lt relies on tv.linear_order so it's probably doing the conversion but not tracing it
+  simp at exis,
+  have le : i1 <= i2 := ⟨ exis ⟩,
+  exact h le,
+end
+
 namespace I
-@[refl] lemma le_refl (i : I) : i <= i := I_less_than_or_equal.mk (λ a : atom, tv.le_refl (i a))
+def le (i1 i2 : I) := I_less_than_or_equal i1 i2
+def lt (i1 i2 : I) := I_less_than i1 i2
+@[refl] lemma le_refl (i : I) : i <= i := ⟨λ a, tv.le_refl (i a)⟩ 
+@[trans] lemma le_trans {a b c : I} (h1 : a ≤ b) : b ≤ c → a ≤ c := λ h2, ⟨λ a, tv.le_trans (h1.p a) (h2.p a)⟩
+lemma le_antisymm {n m : I} (h1 : n <= m) : m <= n -> n = m := λ h2, funext (λ a : atom, tv.le_antisymm (h1.p a) (h2.p a))
+--- I < I and N < N are fundamentally different
+-- Need to decompose exists to get the atom not universal it.
+lemma lt_iff_le_not_le {a b : I} : a < b ↔ (a ≤ b ∧ ¬ b ≤ a) := iff.intro
+  (λ l, begin
+    split, exact l.p,
+    by_contradiction p,
+    cases l.q with w kk,
+    exact ((lt_iff_le_not_le.mp kk).right) (p.p w) end)
+  (λ r, begin
+    split, exact r.left,
+    exact I_not_lt_exists r.right,
+  end)
+
+
+instance partial_order : partial_order I :=
+{ le := le,
+  le_refl := le_refl,
+  le_trans := @le_trans,
+  le_antisymm := @le_antisymm,
+  lt_iff_le_not_le := @lt_iff_le_not_le,
+}
 end I
 
 
