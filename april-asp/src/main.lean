@@ -90,6 +90,7 @@ lemma lt_iff_le_not_le {a b : I} : a < b ↔ (a ≤ b ∧ ¬ b ≤ a) := iff.int
 
 instance partial_order : partial_order I :=
 { le := le,
+  lt := lt,
   le_refl := le_refl,
   le_trans := @le_trans,
   le_antisymm := @le_antisymm,
