@@ -8,6 +8,8 @@ open list
 
 set_option trace.simplify.rewrite true
 
+
+
 def atom := nat
 instance : inhabited atom := nat.inhabited
 inductive tv
