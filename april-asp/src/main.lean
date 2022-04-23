@@ -1,9 +1,12 @@
+
+import data.fintype.order
 import data.nat.basic -- Some basic simps
+import order.complete_lattice
 -- This is here so I don't forget how to trace
 -- set_option trace.simplify.rewrite true
 open list
 
-set_option trace.simplify true
+set_option trace.simplify.rewrite true
 
 def atom := nat
 instance : inhabited atom := nat.inhabited
@@ -32,6 +35,9 @@ lemma lt_iff_le_not_le {m n : tv} : m < n ↔ (m ≤ n ∧ ¬ n ≤ m) := nat.lt
 instance decidable_lt : ∀ a b : tv, decidable (a < b) := λ a b, nat.decidable_lt (tv_nat a) (tv_nat b)
 instance decidable_le : ∀ a b : tv, decidable (a ≤ b):= λ a b, nat.decidable_le (tv_nat a) (tv_nat b)
 instance decidable_eq : decidable_eq tv := λ a b, by { rw <- tv_unnat_eq, apply nat.decidable_eq }
+instance fintype : fintype tv := {
+  elems := {vfalse, vundef, vtrue},
+  complete := λ a, by { cases a; simp }}
 instance linear_order : linear_order tv :=
 { le := le,
   le_refl := tv.le_refl,
@@ -43,12 +49,49 @@ instance linear_order : linear_order tv :=
   decidable_le               := tv.decidable_le,
   -- These fields are optional but easy enough to define
   decidable_lt               := tv.decidable_lt,
-  decidable_eq               := tv.decidable_eq 
-}
-def neg (v : tv) : tv := tv.cases_on v tv.vfalse tv.vundef tv.vtrue
+  decidable_eq               := tv.decidable_eq }
+@[simp, reducible] def neg (v : tv) : tv := tv.cases_on v tv.vfalse tv.vundef tv.vtrue
 instance : has_neg tv := ⟨neg⟩ 
-def conj (a b : tv) := min a b
-def disj (a b : tv) := max a b
+@[simp, reducible] def conj (a b : tv) := min a b
+@[simp, reducible] def disj (a b : tv) := max a b
+-- instance : has_inf tv := ⟨conj⟩
+-- instance : has_sup tv := ⟨disj⟩
+-- instance : has_bot tv := ⟨vfalse⟩
+-- instance : has_top tv := ⟨vtrue⟩
+
+-- class semilattice_sup (α : Type u) extends has_sup α, partial_order α :=
+-- (le_sup_left : ∀ a b : α, a ≤ a ⊔ b)
+-- (le_sup_right : ∀ a b : α, b ≤ a ⊔ b)
+-- (sup_le : ∀ a b c : α, a ≤ c → b ≤ c → a ⊔ b ≤ c)
+
+
+-- variable [lo : complete_lattice tv]
+-- def foo [lo : complete_lattice tv] : Prop := true
+-- #check @linear_order.to_lattice tv lo
+
+-- -- This works
+-- lemma le_sup_left (a b : tv) : a <= a ⊔ b := by { simp }
+-- -- SO why shouldn't this?
+-- lemma le_sup_left_2 [lo : linear_order tv] [sup : has_sup tv] (a b : tv) : a <= a ⊔ b := by { simp }
+-- lemma le_sup_right (a b : tv) : b <= a ⊔ b := by { simp }
+-- lemma sup_le (a b c : tv) : a ≤ c → b ≤ c → a ⊔ b ≤ c := by { simp, exact and.intro }
+
+-- -- TODO look into this
+-- #check linear_order.to_distrib_lattice
+
+-- -- Problem here is that it can't recognize it as ⊔ 
+-- instance : semilattice_sup tv := {
+-- le_sup_left := le_sup_left,
+-- le_sup_right := le_sup_right,
+-- sup_le := sup_le,
+-- sup := λ a b, a ⊔ b,
+-- ..lo  }
+
+
+
+-- #check complete_lattice
+
+
 end tv
 -- Logical conjunction of a list of truth values
 -- TODO maybe use ⋀ syntax 
@@ -58,6 +101,40 @@ def tv_disj (l : list tv) : tv := foldl tv.disj tv.vfalse l
 -- Logical complement of a list of truth values
 def tv_neg (l : list tv) : list tv := map tv.neg l
 
+
+
+def foo { α : Type } [fintype α] (S : set α) : :=
+
+
+-- Probably don't care about this but maybe come back to it when I know how to deal with it better
+instance {a : tv} {S : set tv} : decidable (a ∈ S) := 
+@[reducible] noncomputable def tv_set_to_list (a : set tv) : list tv :=
+  (if vfalse ∈ a then [vfalse] else []) ++
+  (if vundef ∈ a then [vundef] else []) ++
+  (if vtrue ∈ a then [vtrue] else [])
+  
+
+
+#check fintype.to_complete_linear_order
+
+instance lattice_tv : lattice tv := @linear_order.to_lattice tv tv.linear_order
+-- instance : lattice tv := lattice_tv
+instance complete_lattice_tv : complete_lattice tv := {
+  Sup := sorry,
+  Sup_le := sorry,
+  le_Sup := sorry,
+  Inf := sorry,
+  Inf_le := sorry,
+  le_Inf := sorry,
+  top := sorry,
+  bot := sorry,
+  le_top := sorry,
+  bot_le := sorry,
+  ..lattice_tv,
+}
+
+
+#check set.fintype
 
 -- These two can be used interchangeably
 example (a b : tv) (h : a <= b) : tv_nat a <= tv_nat b := h
@@ -97,19 +174,14 @@ lemma lt_iff_le_not_le {a b : I} : a < b ↔ (a ≤ b ∧ ¬ b ≤ a) := iff.int
     split, exact r.left,
     exact I_not_lt_exists r.right,
   end)
-
-
 instance partial_order : partial_order I :=
 { le := le,
   lt := lt,
   le_refl := le_refl,
   le_trans := @le_trans,
   le_antisymm := @le_antisymm,
-  lt_iff_le_not_le := @lt_iff_le_not_le,
-}
-
+  lt_iff_le_not_le := @lt_iff_le_not_le }
 def eval (self : I) (atoms : list atom) : list tv := map self atoms
-
 end I
 
 
@@ -117,7 +189,6 @@ structure Rule :=
   (head : atom)
   (pbody : list atom)
   (nbody : list atom)
-
 namespace Rule
   def atoms (self : Rule) : list atom :=
     self.head :: (self.pbody ++ self.nbody)
@@ -125,14 +196,24 @@ namespace Rule
   def eval_nbody (self : Rule) (i : I) : tv := tv_conj (tv_neg (i.eval self.nbody))
   def eval_body (self : Rule) (i : I) : tv := tv.conj (self.eval_pbody i) (self.eval_nbody i)
   def eval_head (self : Rule) (i : I) : tv := i self.head
-  structure satisfied (r : Rule) (i : I) :=
+  structure satisfied (r : Rule) (i : I) : Prop :=
     (p : r.eval_body i <= r.eval_head i)
-  -- Alternatively...
-  -- inductive satisfied (r : Rule) (i : I) : Prop
-  -- | false_body (p : r.eval_body i = vfalse) : satisfied
-  -- | true_head (p : r.eval_head i = vtrue) : satisfied
-  -- | undef_head_body (p : r.eval_head i = vundef) (p2 : r.eval_body i = vundef) : satisfied
 end Rule
+
+def Program := list Rule
+instance : has_mem Rule Program := ⟨@list.mem Rule⟩ 
+namespace Program
+  structure model (self : Program) (i : I) : Prop :=
+    (p : ∀r ∈ self, Rule.satisfied r i)
+  structure stable_model (self : Program) (i : I) : Prop :=
+    (m : self.model i)
+    (p : ∀ii <= i, ¬(self.model i))
+end Program
+
+
+
+
+
 
 
 
