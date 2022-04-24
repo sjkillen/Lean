@@ -50,7 +50,6 @@ instance fintype : fintype tv := {
   elems := {vfalse, vundef, vtrue},
   complete := λ a, by { cases a; simp }}
 
-
 def top : tv := vtrue
 lemma le_top (a : tv) : a <= tv.top := begin
     have h1 : a <= a := @nat.less_than_or_equal.refl a.to_nat,
@@ -78,12 +77,26 @@ instance bounded_order : bounded_order tv := {
   bot_le := bot_le,
 }
 
+
 @[reducible]
 noncomputable instance complete_linear_order : complete_linear_order tv := fintype.to_complete_linear_order tv
 
 @[reducible]
 noncomputable instance complete_lattice : complete_lattice tv := complete_linear_order.to_complete_lattice tv
 
+def sup := @max tv
+instance has_sup : has_sup tv := ⟨tv.sup⟩
+def inf := @min tv
+instance has_inf : has_inf tv := ⟨tv.inf⟩
+
+@[reducible] 
+noncomputable def Sup := tv.complete_lattice.Sup
+@[reducible] 
+noncomputable instance has_Sup : has_Sup tv := ⟨tv.Sup⟩
+@[reducible] 
+noncomputable def Inf := tv.complete_lattice.Inf
+@[reducible] 
+noncomputable instance has_Inf : has_Inf tv := ⟨tv.Inf⟩
 
 end tv
 
@@ -144,14 +157,59 @@ def bot (a : atom) : tv := vfalse
 lemma bot_le (i : I) : I_less_than_or_equal I.bot i := I_less_than_or_equal.mk (λ a, tv.bot_le (i a))
 
 
-
-
 instance bounded_order : bounded_order I := {
   top := I.top,
   le_top := I.le_top,
   bot := I.bot,
   bot_le := I.bot_le,
 }
+
+def sup (i1 i2 : I) : I := λ a, tv.sup (i1 a) (i2 a)
+instance has_sup : has_sup I := ⟨I.sup⟩
+@[simp] lemma sup_le (a b c : I) : a <= c -> b <= c -> a ⊔ b <= c := (λ h g, ⟨(λ x, max_le (h.p x) (g.p x))⟩)
+@[simp] lemma le_sup_left (a b : I) : a <= a ⊔ b  := ⟨λ x, le_max_left (a x) (b x)⟩
+@[simp] lemma le_sup_right (a b : I) : b <= a ⊔ b := ⟨λ x, le_max_right (a x) (b x)⟩
+
+def inf (i1 i2 : I) : I := λ a, tv.inf (i1 a) (i2 a)
+instance has_inf : has_inf I := ⟨I.inf⟩
+#check le_min
+@[simp] lemma le_inf (a b c : I) : a <= b -> a <= c -> a <= b ⊓ c := (λ h g, ⟨(λ x, le_min (h.p x) (g.p x))⟩)
+@[simp] lemma le_inf_left (a b : I) : a <= a ⊓ b  := ⟨λ x, le_max_left (a x) (b x)⟩
+@[simp] lemma le_inf_right (a b : I) : b <= a ⊓ b := ⟨λ x, le_max_right (a x) (b x)⟩
+
+
+
+@[reducible] 
+noncomputable def Sup (S : set I) : I := λ a, tv.Sup (set.image (λ i : I, i a) S)
+@[reducible] 
+noncomputable instance has_Sup : has_Sup I := ⟨I.Sup⟩
+@[reducible] 
+noncomputable def Inf (S : set I) : I := λ a, tv.Inf (set.image (λ i : I, i a) S)
+@[reducible] 
+noncomputable instance has_Inf : has_Inf I := ⟨I.Inf⟩
+
+
+instance complete_lattice : complete_lattice I := {
+  le := I.le,
+  sup := I.sup,
+  sup_le := sup_le,
+  le_sup_right := le_sup_right,
+  le_sup_left := le_sup_left,
+  inf := inf,
+  le_inf := le_inf,
+  inf_le_right := sorry,
+  inf_le_left := sorry,
+  Sup := sorry,
+  le_Sup := sorry,
+  Sup_le := sorry,
+  Inf := sorry,
+  le_Inf := sorry,
+  Inf_le := sorry,
+  ..I.partial_order,
+  ..I.bounded_order,
+
+}
+
 
 
 end I

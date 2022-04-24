@@ -6,6 +6,8 @@ import order.complete_lattice
 -- set_option trace.simplify.rewrite true
 open list
 
+-- Most of the time noncomputable traces back to set.fintype, which assumes that we can decide whether an element is in a set.
+
 set_option trace.simplify.rewrite true
 
 
