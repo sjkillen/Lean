@@ -3,10 +3,6 @@ import data.fintype.order
 import data.nat.basic -- Some basic simps
 import order.complete_lattice
 
-
-variable { N : ℕ }
-def atom := fin N
-
 inductive tv
 | vtrue
 | vundef
@@ -87,3 +83,51 @@ noncomputable instance complete_lattice : complete_lattice tv := complete_linear
 
 
 end tv
+
+
+def atom := ℕ
+
+def I := atom -> tv
+
+structure I_less_than_or_equal  (i1 : I) (i2 : I) : Prop :=
+  (p : Π a : atom, (i1 a) <= (i2 a))
+
+instance : has_le I := ⟨I_less_than_or_equal⟩
+structure I_less_than (i1 : I) (i2 : I) : Prop :=
+  (p : i1 <= i2) (q : ∃a : atom, (i1 a) < (i2 a))
+instance : has_lt I := ⟨I_less_than⟩ 
+lemma I_not_lt_exists {i1 i2 : I} (h : ¬i1 <= i2) : ∃ a : atom, (i2 a) < (i1 a) := begin
+  by_contradiction exis,
+  rw not_exists at exis,
+  -- Not sure why I can't write simp as `rw not_lt at exis`
+  -- not_lt relies on tv.linear_order so it's probably doing the conversion but not tracing it
+  simp at exis,
+  have le : i1 <= i2 := ⟨ exis ⟩,
+  exact h le,
+end
+
+namespace I
+def le (i1 i2 : I) := I_less_than_or_equal i1 i2
+def lt (i1 i2 : I) := I_less_than i1 i2
+@[refl] lemma le_refl (i : I) : i <= i := ⟨λ a, tv.le_refl (i a)⟩ 
+@[trans] lemma le_trans {a b c : I} (h1 : a ≤ b) : b ≤ c → a ≤ c := λ h2, ⟨λ a, tv.le_trans (h1.p a) (h2.p a)⟩
+lemma le_antisymm {n m : I} (h1 : n <= m) : m <= n -> n = m := λ h2, funext (λ a : atom, tv.le_antisymm (h1.p a) (h2.p a))
+lemma lt_iff_le_not_le {a b : I} : a < b ↔ (a ≤ b ∧ ¬ b ≤ a) := iff.intro
+  (λ l, begin
+    split, exact l.p,
+    by_contradiction p,
+    cases l.q with w kk,
+    exact ((lt_iff_le_not_le.mp kk).right) (p.p w) end)
+  (λ r, begin
+    split, exact r.left,
+    exact I_not_lt_exists r.right,
+  end)
+instance partial_order : partial_order I :=
+{ le := le,
+  lt := lt,
+  le_refl := le_refl,
+  le_trans := @le_trans,
+  le_antisymm := @le_antisymm,
+  lt_iff_le_not_le := @lt_iff_le_not_le }
+def eval (self : I) (atoms : list atom) : list tv := map self atoms
+end I
