@@ -4,6 +4,9 @@ import data.nat.basic -- Some basic simps
 import order.complete_lattice
 open list
 
+
+-- set_option trace.simplify.rewrite true
+
 inductive tv
 | vtrue
 | vundef
@@ -167,15 +170,14 @@ instance bounded_order : bounded_order I := {
 def sup (i1 i2 : I) : I := λ a, tv.sup (i1 a) (i2 a)
 instance has_sup : has_sup I := ⟨I.sup⟩
 @[simp] lemma sup_le (a b c : I) : a <= c -> b <= c -> a ⊔ b <= c := (λ h g, ⟨(λ x, max_le (h.p x) (g.p x))⟩)
-@[simp] lemma le_sup_left (a b : I) : a <= a ⊔ b  := ⟨λ x, le_max_left (a x) (b x)⟩
 @[simp] lemma le_sup_right (a b : I) : b <= a ⊔ b := ⟨λ x, le_max_right (a x) (b x)⟩
+@[simp] lemma le_sup_left (a b : I) : a <= a ⊔ b  := ⟨λ x, le_max_left (a x) (b x)⟩
 
 def inf (i1 i2 : I) : I := λ a, tv.inf (i1 a) (i2 a)
 instance has_inf : has_inf I := ⟨I.inf⟩
-#check le_min
 @[simp] lemma le_inf (a b c : I) : a <= b -> a <= c -> a <= b ⊓ c := (λ h g, ⟨(λ x, le_min (h.p x) (g.p x))⟩)
-@[simp] lemma le_inf_left (a b : I) : a <= a ⊓ b  := ⟨λ x, le_max_left (a x) (b x)⟩
-@[simp] lemma le_inf_right (a b : I) : b <= a ⊓ b := ⟨λ x, le_max_right (a x) (b x)⟩
+@[simp] lemma inf_le_right (a b : I) : a ⊓ b <= b:= ⟨λ x, min_le_right (a x) (b x)⟩
+@[simp] lemma inf_le_left (a b : I) : a ⊓ b <= a  := ⟨λ x, min_le_left (a x) (b x)⟩
 
 
 
@@ -183,31 +185,69 @@ instance has_inf : has_inf I := ⟨I.inf⟩
 noncomputable def Sup (S : set I) : I := λ a, tv.Sup (set.image (λ i : I, i a) S)
 @[reducible] 
 noncomputable instance has_Sup : has_Sup I := ⟨I.Sup⟩
-@[reducible] 
+@[reducible]
 noncomputable def Inf (S : set I) : I := λ a, tv.Inf (set.image (λ i : I, i a) S)
 @[reducible] 
 noncomputable instance has_Inf : has_Inf I := ⟨I.Inf⟩
 
+lemma le_Sup (S : set I) (i : I) (m : i ∈ S) : i <= (I.Sup S) := ⟨ λ a, begin
+let imager := (λ i : I, i a),
+let mapped_set := set.image imager S,
+have tv_le_Sup := tv.complete_lattice.le_Sup,
+have y := tv_le_Sup mapped_set (i a),
+have z : (i a) ∈ mapped_set := set.mem_image_of_mem imager m,
+exact y z,
+end⟩
 
-instance complete_lattice : complete_lattice I := {
+lemma Sup_le (S : set I) (i : I) (p : ∀ o ∈ S, o <= i) : (I.Sup S) <= i := ⟨ λ a, begin
+let imager := (λ i : I, i a),
+let mapped_set := set.image imager S,
+have tv_Sup_le := tv.complete_lattice.Sup_le,
+have y := tv_Sup_le mapped_set (i a),
+simp at y,
+exact y (λ j k, ((p j) k).p a),
+end⟩
+
+-- Proof is near identical to le_Sup
+lemma Inf_le (S : set I) (i : I) (m : i ∈ S) : (I.Inf S) <= i := ⟨ λ a, begin
+let imager := (λ i : I, i a),
+let mapped_set := set.image imager S,
+have tv_le_Sup := tv.complete_lattice.Inf_le,
+have y := tv_le_Sup mapped_set (i a),
+have z : (i a) ∈ mapped_set := set.mem_image_of_mem imager m,
+exact y z,
+end⟩
+
+-- Proof is near identical to Sup_le
+lemma le_Inf (S : set I) (i : I) (p : ∀ o ∈ S, i <= o) : i <= (I.Inf S) := ⟨ λ a, begin 
+let imager := (λ i : I, i a),
+let mapped_set := set.image imager S,
+have tv_Sup_le := tv.complete_lattice.le_Inf,
+have y := tv_Sup_le mapped_set (i a),
+simp at y,
+exact y (λ j k, ((p j) k).p a),
+end⟩
+
+--  ∀ (s : set α) (a : α), a ∈ s → a ≤ complete_lattice.Sup s
+
+@[reducible] noncomputable instance complete_lattice : complete_lattice I := {
   le := I.le,
   sup := I.sup,
-  sup_le := sup_le,
-  le_sup_right := le_sup_right,
-  le_sup_left := le_sup_left,
-  inf := inf,
-  le_inf := le_inf,
-  inf_le_right := sorry,
-  inf_le_left := sorry,
-  Sup := sorry,
-  le_Sup := sorry,
-  Sup_le := sorry,
-  Inf := sorry,
-  le_Inf := sorry,
-  Inf_le := sorry,
+  sup_le := I.sup_le,
+  le_sup_right := I.le_sup_right,
+  le_sup_left := I.le_sup_left,
+  inf := I.inf,
+  le_inf := I.le_inf,
+  inf_le_right := I.inf_le_right,
+  inf_le_left := I.inf_le_left,
+  Sup := I.Sup,
+  le_Sup := le_Sup,
+  Sup_le := Sup_le,
+  Inf := I.Inf,
+  le_Inf := I.le_Inf,
+  Inf_le := I.Inf_le,
   ..I.partial_order,
   ..I.bounded_order,
-
 }
 
 
