@@ -5,7 +5,8 @@ import order.complete_lattice
 open list
 
 
--- set_option trace.simplify.rewrite true
+set_option trace.simplify.rewrite true
+
 
 inductive tv
 | vtrue
@@ -151,7 +152,6 @@ instance partial_order : partial_order I :=
   le_trans := @le_trans,
   le_antisymm := @le_antisymm,
   lt_iff_le_not_le := @lt_iff_le_not_le }
-def eval (self : I) (atoms : list atom) : list tv := map self atoms
 
 
 def top (a : atom) : tv := vtrue
@@ -251,5 +251,131 @@ end⟩
 }
 
 
-
 end I
+------- RULES AND PROGRAM and stuff
+
+
+
+namespace tv
+def conj (l : list tv) : tv := foldl tv.inf tv.vtrue l
+-- Logical disjunction of a list of truth values
+def disj (l : list tv) : tv := foldl tv.sup tv.vfalse l
+-- Logical complement of a list of truth values
+@[simp, reducible] def negate (v : tv) : tv := tv.cases_on v tv.vfalse tv.vundef tv.vtrue
+instance : has_neg tv := ⟨negate⟩ 
+def neg (l : list tv) : list tv := map tv.negate l
+end tv
+
+
+namespace I
+def eval (self : I) (atoms : list atom) : list tv := map self atoms
+def assign (self : I) (a : atom) (v : tv) : I := λ b, if a = b then v else self a
+end I
+
+
+structure Rule :=
+  (head : atom)
+  (pbody : list atom)
+  (nbody : list atom)
+namespace Rule
+  def atoms (self : Rule) : list atom :=
+    self.head :: (self.pbody ++ self.nbody)
+  def eval_pbody (self : Rule) (i : I) : tv := tv.conj (i.eval self.pbody) 
+  def eval_nbody (self : Rule) (i : I) : tv := tv.conj (tv.neg (i.eval self.nbody))
+  def eval_body (self : Rule) (i : I) : tv := (self.eval_pbody i) ⊓ (self.eval_nbody i)
+  def eval_head (self : Rule) (i : I) : tv := i self.head
+
+
+
+
+  -- FACK section
+
+  lemma foldl_min_simplify {hd : tv} {tl : list tv} : foldl min ⊤ (hd::tl) = foldl min hd tl := by { simp }
+
+  lemma foldl_min_extract {a : tv} {l : list tv} : foldl min a l = min a (foldl min ⊤ l) := begin
+    cases l, simp,
+    rw foldl_min_simplify,
+    unfold foldl, 
+    exact foldl_assoc,
+  end
+
+  -- faaaaack
+  -- Don't think I need this
+  lemma fack {l : list tv} {a : tv} : foldl min ⊤ (a::l) <= foldl min ⊤ l := begin
+    simp at *,
+    have y : foldl min a l = min a (foldl min ⊤ l) := begin
+      exact foldl_min_extract,
+    end,
+    rw y,
+    cases foldl min ⊤ l,
+    all_goals{ simp } 
+  end
+
+
+  @[simp] def eval_pbody_monotone (r: Rule) : monotone r.eval_pbody := λ a b c, begin
+    unfold Rule.eval_pbody,
+    -- unfold tv.conj,
+    induction r.pbody,
+    exact rfl.ge,
+    have mm : a hd <= b hd := c.p hd,
+    -- suggest [f, f2],
+    -- have dd := f (a.eval tl) (a hd),
+    unfold tv.conj at |- ih,
+    unfold tv.inf at |- ih,
+    rw foldl_min_extract,
+    -- TODO this might complete it, but need to factor out the head from I.eval
+    -- Eg. a.eval h::l = a h :: (a.eval l)
+    -- Might need to repeat a few things that can be applied multiple times
+    have q : a.eval (hd::tl) = a hd :: (a.eval tl) := sorry,
+    rw q,
+    rw foldl_min_simplify,
+    -- unfold I.eval,
+
+    -- cases (a.eval (hd :: tl)); cases (b.eval (hd :: tl)),
+    -- simp,
+    -- suggest,
+  end
+
+  @[simp] def eval_nbody_monotone (r: Rule) : monotone r.eval_nbody := λ a b c, begin
+    sorry
+  end
+  @[simp] def eval_body_monotone (r: Rule) : monotone r.eval_body := 
+    λ a b c, min_le_min (eval_pbody_monotone r c) (eval_nbody_monotone r c)
+
+  structure satisfied (r : Rule) (i : I) : Prop :=
+    (p : r.eval_body i <= r.eval_head i)
+end Rule
+
+def Program := list Rule
+instance : has_mem Rule Program := ⟨@list.mem Rule⟩ 
+namespace Program
+  structure model (self : Program) (i : I) : Prop :=
+    (p : ∀r ∈ self, Rule.satisfied r i)
+  structure stable_model (self : Program) (i : I) : Prop :=
+    (m : self.model i)
+    (p : ∀ii <= i, ¬(self.model i))
+end Program
+
+def xT_propagate (i : I) : Program -> I
+| [] := i
+| (r::p) := (i.assign r.head (r.eval_body i)) ⊔ (xT_propagate p)
+
+
+def T_propagate (p : Program) (i : I) : I := xT_propagate i p
+
+
+
+theorem T_monotone (p : Program) : monotone (T_propagate p) := λ a b c, begin
+refine I_less_than_or_equal.mk _,
+assume atom,
+unfold T_propagate,
+induction p,
+exact c.p atom,
+unfold xT_propagate,
+refine sup_le_sup _ p_ih,
+unfold I.assign,
+split_ifs,
+exact p_hd.eval_body_monotone c,
+exact c.p p_hd.head,
+-- unfold Rule.eval_body Rule.eval_pbody Rule.eval_nbody,
+end
