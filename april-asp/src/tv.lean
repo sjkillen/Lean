@@ -257,19 +257,46 @@ end I
 
 
 namespace tv
+-- Logical conjunction of a list of truth values
 def conj (l : list tv) : tv := foldl tv.inf tv.vtrue l
 -- Logical disjunction of a list of truth values
 def disj (l : list tv) : tv := foldl tv.sup tv.vfalse l
 -- Logical complement of a list of truth values
+
+
+
 @[simp, reducible] def negate (v : tv) : tv := tv.cases_on v tv.vfalse tv.vundef tv.vtrue
 instance : has_neg tv := ⟨negate⟩ 
 def neg (l : list tv) : list tv := map tv.negate l
+
+
+-- Helpers
+lemma foldl_remove_default (hd : tv) {tl : list tv} : foldl min ⊤ (hd::tl) = foldl min hd tl := by { simp }
+
+lemma foldl_min_extract {a : tv} {l : list tv} : foldl min a l = min a (foldl min ⊤ l) := begin
+  cases l, simp,
+  rw foldl_remove_default,
+  unfold foldl, 
+  exact foldl_assoc,
+end
+
+
 end tv
 
 
 namespace I
 def eval (self : I) (atoms : list atom) : list tv := map self atoms
+
+lemma unfold_eval (self : I) {a : atom} {tl : list atom} : (self.eval (a::tl)) = (self a) :: (self.eval tl) := begin unfold I.eval, simp, end
+
 def assign (self : I) (a : atom) (v : tv) : I := λ b, if a = b then v else self a
+
+
+def neg (self : I) : I := λ a, tv.negate (self a)
+
+@[simp] lemma neg_eval {self : I} {atoms : list atom} : (tv.neg (self.eval atoms)) = (self.neg.eval atoms) := map_map tv.negate self atoms
+
+
 end I
 
 
@@ -288,59 +315,48 @@ namespace Rule
 
 
 
-  -- FACK section
 
-  lemma foldl_min_simplify {hd : tv} {tl : list tv} : foldl min ⊤ (hd::tl) = foldl min hd tl := by { simp }
-
-  lemma foldl_min_extract {a : tv} {l : list tv} : foldl min a l = min a (foldl min ⊤ l) := begin
-    cases l, simp,
-    rw foldl_min_simplify,
-    unfold foldl, 
-    exact foldl_assoc,
-  end
 
   -- faaaaack
   -- Don't think I need this
-  lemma fack {l : list tv} {a : tv} : foldl min ⊤ (a::l) <= foldl min ⊤ l := begin
-    simp at *,
-    have y : foldl min a l = min a (foldl min ⊤ l) := begin
-      exact foldl_min_extract,
-    end,
-    rw y,
-    cases foldl min ⊤ l,
-    all_goals{ simp } 
-  end
+  -- lemma fack {l : list tv} {a : tv} : foldl min ⊤ (a::l) <= foldl min ⊤ l := begin
+  --   simp at *,
+  --   have y : foldl min a l = min a (foldl min ⊤ l) := begin
+  --     exact foldl_min_extract,
+  --   end,
+  --   rw y,
+  --   cases foldl min ⊤ l,
+  --   all_goals{ simp } 
+  -- end
+
 
 
   @[simp] def eval_pbody_monotone (r: Rule) : monotone r.eval_pbody := λ a b c, begin
     unfold Rule.eval_pbody,
-    -- unfold tv.conj,
     induction r.pbody,
     exact rfl.ge,
-    have mm : a hd <= b hd := c.p hd,
-    -- suggest [f, f2],
-    -- have dd := f (a.eval tl) (a hd),
     unfold tv.conj at |- ih,
     unfold tv.inf at |- ih,
-    rw foldl_min_extract,
-    -- TODO this might complete it, but need to factor out the head from I.eval
-    -- Eg. a.eval h::l = a h :: (a.eval l)
-    -- Might need to repeat a few things that can be applied multiple times
-    have q : a.eval (hd::tl) = a hd :: (a.eval tl) := sorry,
-    rw q,
-    rw foldl_min_simplify,
-    -- unfold I.eval,
-
-    -- cases (a.eval (hd :: tl)); cases (b.eval (hd :: tl)),
-    -- simp,
-    -- suggest,
+    rw [I.unfold_eval a, I.unfold_eval b],
+    have t : ⊤ = vtrue := by { refl },
+    have rd_a := tv.foldl_remove_default (a hd),
+    have rd_b := tv.foldl_remove_default (b hd),
+    rw t at rd_a rd_b,
+    rw [rd_a, rd_b],
+    rw [@tv.foldl_min_extract (a hd), @tv.foldl_min_extract (b hd)],
+    have mm : a hd <= b hd := c.p hd,
+    exact min_le_min mm ih,
   end
 
-  @[simp] def eval_nbody_monotone (r: Rule) : monotone r.eval_nbody := λ a b c, begin
-    sorry
+  @[simp] def eval_nbody_antitone (r: Rule) : antitone r.eval_nbody := λ a b c, begin
+    unfold Rule.eval_nbody,
+    induction r.nbody,
+    exact rfl.ge,
+
+    unfold tv.conj,
   end
-  @[simp] def eval_body_monotone (r: Rule) : monotone r.eval_body := 
-    λ a b c, min_le_min (eval_pbody_monotone r c) (eval_nbody_monotone r c)
+  -- @[simp] def eval_body_monotone (r: Rule) : monotone r.eval_body := 
+  --   λ a b c, min_le_min (eval_pbody_monotone r c) (eval_nbody_monotone r c)
 
   structure satisfied (r : Rule) (i : I) : Prop :=
     (p : r.eval_body i <= r.eval_head i)
