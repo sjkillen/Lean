@@ -5,8 +5,9 @@ import order.complete_lattice
 import order.fixed_points
 open list
 open order_hom
+open function (fixed_points is_fixed_pt)
 
--- set_option trace.simplify.rewrite true
+set_option trace.simplify.rewrite true
 
 
 inductive tv
@@ -384,17 +385,34 @@ end
 
 def T (p : Program) (i_neg : I) : I →o I := ⟨T_propagate p i_neg, T_monotone p i_neg⟩
 
+-- Every model is a fixpoint of T
+-- Could use the set fixed_points here but that uses = instead of <= for the inside so it would be more cumbersome
+lemma T_model_fp {p : Program} {i : I} (model : p.model i) : i ∈ {a : I | T_propagate p i a ≤ a} := begin
+  sorry
+end
 
--- #check fixed_points.function.fixed_points.complete_lattice
 
-lemma yup {ii i : I} (i_lt : ii < i) {p : Program} (model : p.model i) (reduct_model : p.reduct_model i ii) 
-    := sorry
+
 
 theorem T_stable_model {p : Program} {i : I} (model : p.model i) : p.stable_model i ↔ i = lfp (T p i) := begin
 split,
 all_goals { assume h },
-unfold_coes,
-ext1,
+unfold_coes, unfold lfp, simp, unfold_coes, unfold T, simp,
+refine I.le_antisymm _ _,
+simp, 
+assume b le,
+refine le_trans _ le,
+exact sorry,
+exact Inf_le (T_model_fp model),
+
+-- by_contradiction q, simp at q,
+-- simp at q,
+exact sorry,
+-- Eliminate the Inf :)
+-- simp,
+assume b tp,
+
+
 exact sorry,
 fconstructor, assumption,
 assume ii ii_lt_i,
@@ -403,8 +421,6 @@ have u := h.p,
 have uy := model.p,
 sorry
 end
-
-
 variable p : Program
 variable i : I
 #check lfp (T p i)
