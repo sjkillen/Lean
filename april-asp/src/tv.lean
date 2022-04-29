@@ -2,8 +2,9 @@
 import data.fintype.order
 import data.nat.basic -- Some basic simps
 import order.complete_lattice
-import testing.slim_check.sampleable
+import order.fixed_points
 open list
+open order_hom
 
 -- set_option trace.simplify.rewrite true
 
@@ -363,7 +364,7 @@ namespace Program
   def model (self : Program) (i : I) := self.reduct_model i i
   structure stable_model (self : Program) (i : I) : Prop :=
     (m : self.model i)
-    (p : ∀ii <= i, ¬(self.reduct_model ii i))
+    (p : ∀ii < i, ¬(self.reduct_model ii i))
 end Program
 
 def xT_propagate (i_pos i_neg : I) : Program -> I
@@ -373,14 +374,37 @@ def xT_propagate (i_pos i_neg : I) : Program -> I
 def T_propagate (p : Program) (i_neg i_pos : I) : I := xT_propagate i_pos i_neg p
 
 
-
 theorem T_monotone (p : Program) (i_neg : I) : monotone (T_propagate p i_neg) := λ a b c, begin
   induction p,
   exact c,
   refine sup_le_sup _ p_ih,
   refine I.assign_step c _,
-  -- Proof shows
-  -- λ (i_pos : I), r.eval_body i_pos i_neg) a ≤ (λ (i_pos : I), r.eval_body i_pos i_neg) b
-  -- But lean is smart enough to know this matches the goal
   exact Rule.eval_body_monotone p_hd i_neg c,
 end
+
+def T (p : Program) (i_neg : I) : I →o I := ⟨T_propagate p i_neg, T_monotone p i_neg⟩
+
+
+-- #check fixed_points.function.fixed_points.complete_lattice
+
+lemma yup {ii i : I} (i_lt : ii < i) {p : Program} (model : p.model i) (reduct_model : p.reduct_model i ii) 
+    := sorry
+
+theorem T_stable_model {p : Program} {i : I} (model : p.model i) : p.stable_model i ↔ i = lfp (T p i) := begin
+split,
+all_goals { assume h },
+unfold_coes,
+ext1,
+exact sorry,
+fconstructor, assumption,
+assume ii ii_lt_i,
+by_contradiction,
+have u := h.p,
+have uy := model.p,
+sorry
+end
+
+
+variable p : Program
+variable i : I
+#check lfp (T p i)
