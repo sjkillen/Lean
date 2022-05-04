@@ -50,6 +50,7 @@ instance linear_order : linear_order tv :=
   decidable_lt               := tv.decidable_lt,
   decidable_eq               := tv.decidable_eq }
 
+
 -- There are finite truth values
 instance fintype : fintype tv := {
   elems := {vfalse, vundef, vtrue},
@@ -115,7 +116,6 @@ end tv
 
 
 
-
 def atom := ℕ
 
 def I := atom -> tv
@@ -124,14 +124,14 @@ def I := atom -> tv
 
 namespace I
 
-structure I.less_than_or_equal  (i1 : I) (i2 : I) : Prop :=
+structure less_than_or_equal  (i1 : I) (i2 : I) : Prop :=
   (p : Π a : atom, (i1 a) <= (i2 a))
 
 instance : has_le I := ⟨I.less_than_or_equal⟩
-structure I.less_than (i1 : I) (i2 : I) : Prop :=
+structure less_than (i1 : I) (i2 : I) : Prop :=
   (p : i1 <= i2) (q : ∃a : atom, (i1 a) < (i2 a))
 instance : has_lt I := ⟨I.less_than⟩ 
-lemma I.not_lt_exists {i1 i2 : I} (h : ¬i1 <= i2) : ∃ a : atom, (i2 a) < (i1 a) := begin
+lemma not_lt_exists {i1 i2 : I} (h : ¬i1 <= i2) : ∃ a : atom, (i2 a) < (i1 a) := begin
   by_contradiction exis,
   rw not_exists at exis,
   -- Not sure why I can't write simp as `rw not_lt at exis`
@@ -305,14 +305,20 @@ def eval (self : I) (atoms : list atom) : list tv := map self atoms
 
 lemma unfold_eval (self : I) {a : atom} {tl : list atom} : (self.eval (a::tl)) = (self a) :: (self.eval tl) := begin unfold I.eval, simp, end
 
-def assign (self : I) (a : atom) (v : tv) : I := λ b, if a = b then v else self a
+def assign (self : I) (a : atom) (v : tv) : I := λ b, if a = b then v else self b
+
+lemma assign_noop (self : I) (c : atom) : self = self.assign c (self c) := begin
+  unfold I.assign, ext1, split_ifs,
+  exact congr_arg self (eq.symm h),
+  refl,
+end
 
 lemma assign_step {i1 i2 : I} {a : atom} {v1 v2 : tv} (i_le : i1 <= i2) (v_le : v1 <= v2) : (i1.assign a v1) <= (i2.assign a v2) := begin
   apply I.less_than_or_equal.mk, assume b,  
   unfold I.assign,
   split_ifs,
   exact v_le,
-  exact i_le.p a,
+  exact i_le.p b,
 end
 
 #check eq_self_iff_true
@@ -352,8 +358,7 @@ namespace Rule
   def eval_body_monotone (r : Rule) (i_neg : I) : monotone (λ i_pos, r.eval_body i_pos i_neg) :=
       λ a b c, inf_le_inf (eval_pbody_monotone r c) (rfl.ge)
 
-  structure reduct_satisfied (r : Rule) (i_pos i_neg : I) : Prop :=
-    (p : r.eval_body i_neg i_pos <= r.eval_head i_pos)
+  def reduct_satisfied (r : Rule) (i_pos i_neg : I) : Prop := r.eval_body i_neg i_pos <= r.eval_head i_pos
   def satisfied (r : Rule) (i : I) := r.reduct_satisfied i i
 end Rule
 
@@ -385,25 +390,64 @@ end
 
 def T (p : Program) (i_neg : I) : I →o I := ⟨T_propagate p i_neg, T_monotone p i_neg⟩
 
+
+lemma T_increasing {p : Program} {i ii : I} : ii <= T p i ii := begin
+  induction p, refl,
+  exact le_sup_of_le_right p_ih,
+end
+
+
+lemma  T_ii_fp_iff_eq {p : Program} {i ii : I} : T p i ii <= ii ↔ T p i ii = ii := 
+  (iff.intro (λ h, le_antisymm h T_increasing) (λ h, (eq.symm h).ge))
+
+
 -- Every model is a fixpoint of T
--- Could use the set fixed_points here but that uses = instead of <= for the inside so it would be more cumbersome
-lemma T_model_fp {p : Program} {i : I} (model : p.model i) : i ∈ {a : I | T_propagate p i a ≤ a} := begin
+lemma T_model_fp {p : Program} {i : I} : p.model i ↔ i = T p i i := begin
+  split; assume h,
+  exact sorry,
+  fconstructor, assume (r : Rule) (m : r ∈ p), change r.eval_body i i <= r.eval_head i,
+  by_contradiction ch, rw not_le at ch,
+  refine (lt_self_iff_false i).mp _,
+  refine I.less_than.mk rfl.le _,
+  refine Exists.intro r.head _,
+  -- Need some list recursion library magic?
+  -- We can show that i
+end
+
+lemma fuck {α : Type} {a b : α} [linear_order α] (p : a = b) (p2 : a < b) : false := begin
+hint,
+end
+
+
+lemma test {p : Program} {i : I}  : T_propagate p i (Inf {ii : I | T_propagate p i ii <= ii }) = Inf {ii : I | T_propagate p i ii <= ii }  := begin
+refine funext _, assume a,
+end
+
+lemma T_model_fp' {p : Program} {i : I} (model : p.model i) : i ∈ {a : I | T_propagate p i a ≤ a} := begin
   sorry
 end
 
 
-
-
+#check  order_hom.lfp_induction
+-- DOn't think I need model here
 theorem T_stable_model {p : Program} {i : I} (model : p.model i) : p.stable_model i ↔ i = lfp (T p i) := begin
 split,
 all_goals { assume h },
 unfold_coes, unfold lfp, simp, unfold_coes, unfold T, simp,
-refine I.le_antisymm _ _,
-simp, 
-assume b le,
-refine le_trans _ le,
+by_contradiction u,
+let jj := i ⊓ Inf {a : I | T_propagate p i a ≤ a},
+let j : jj < i := sorry,
+have pp := h.p jj j,
+
+
+
 exact sorry,
-exact Inf_le (T_model_fp model),
+-- simp,
+refine Inf_le_of_le _ _,
+assume b bm,
+
+exact sorry,
+exact Inf_le (T_model_fp' model),
 
 -- by_contradiction q, simp at q,
 -- simp at q,
@@ -424,3 +468,6 @@ end
 variable p : Program
 variable i : I
 #check lfp (T p i)
+
+
+#reduce (λ x : ℕ, x) ((λ x : ℕ, x) 32)
