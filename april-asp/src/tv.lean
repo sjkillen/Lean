@@ -358,7 +358,7 @@ namespace Rule
   def eval_body_monotone (r : Rule) (i_neg : I) : monotone (λ i_pos, r.eval_body i_pos i_neg) :=
       λ a b c, inf_le_inf (eval_pbody_monotone r c) (rfl.ge)
 
-  def reduct_satisfied (r : Rule) (i_pos i_neg : I) : Prop := r.eval_body i_neg i_pos <= r.eval_head i_pos
+  def reduct_satisfied (r : Rule) (i_pos i_neg : I) : Prop := r.eval_body i_pos i_neg <= r.eval_head i_pos
   def satisfied (r : Rule) (i : I) := r.reduct_satisfied i i
 end Rule
 
@@ -397,27 +397,41 @@ lemma T_increasing {p : Program} {i ii : I} : ii <= T p i ii := begin
 end
 
 
-lemma  T_fp_le_eq_iff {p : Program} {i ii : I} : T p i ii <= ii ↔ T p i ii = ii := 
+@[simp] lemma  T_fp_le_eq_iff {p : Program} {i ii : I} : T p i ii <= ii ↔ T p i ii = ii := 
   (iff.intro (λ h, le_antisymm h T_increasing) (λ h, (eq.symm h).ge))
 
 lemma T_fp_eq_unstep {p_tl : Program} {p_hd : Rule}  {i ii : I} (h : i = T (p_hd::p_tl) ii i) : i = T p_tl ii i  := 
   le_antisymm T_increasing (sup_le_iff.mp (le_antisymm_iff.mp h).right).right
 
 lemma T_fp_rule_sat_iff {p : Program} {i ii : I} : i = T p ii i ↔ ∀ {r : Rule} (mem : r ∈ p), r.reduct_satisfied i ii := begin
+  -- ==>
   split; assume h,
   induction p,
   by_contradiction, finish,
   assume r rmem,
-  cases rmem,
-  change i = (i.assign p_hd.head (p_hd.eval_body i ii)) ⊔ (xT_propagate i ii p_tl) at h,
-  rw <- rmem at h,
-  
-  exact sorry,
-  
+  change r.eval_body i ii <= r.eval_head i,
+  cases rmem, rw <- rmem at h,
+  change i = (λ b, if r.head = b then (r.eval_body i ii) else i b) ⊔ (xT_propagate i ii p_tl) at h,  
+  cases r.eval_body i ii,
+  any_goals { rw h, unfold Rule.eval_head, refine le_sup_iff.mpr _, left, simp },
   exact p_ih (T_fp_eq_unstep h) rmem,
-
+  -- <==
+  refine le_antisymm T_increasing _,
+  induction p, 
+  exact rfl.ge,
+  change (i.assign p_hd.head (p_hd.eval_body i ii)) ⊔ (xT_propagate i ii p_tl) <= i,
+  apply sup_le_iff.mpr,
+  split,
+  have h2 := @h p_hd (or.inl rfl), change p_hd.eval_body i ii <= p_hd.eval_head i at h2,
+  unfold I.assign,
+  refine I.less_than_or_equal.mk _, assume a,
+  split_ifs,
+  rw <- h_1, exact h2,
+  exact rfl.le,
+  refine p_ih _, simp at *, assume r rmem, exact h.right r rmem,
 end
 
+-- #check sup_iff
 -- lemma T_
 
 -- Every model is a fixpoint of T
