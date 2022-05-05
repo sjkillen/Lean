@@ -397,9 +397,28 @@ lemma T_increasing {p : Program} {i ii : I} : ii <= T p i ii := begin
 end
 
 
-lemma  T_ii_fp_iff_eq {p : Program} {i ii : I} : T p i ii <= ii ↔ T p i ii = ii := 
+lemma  T_fp_le_eq_iff {p : Program} {i ii : I} : T p i ii <= ii ↔ T p i ii = ii := 
   (iff.intro (λ h, le_antisymm h T_increasing) (λ h, (eq.symm h).ge))
 
+lemma T_fp_eq_unstep {p_tl : Program} {p_hd : Rule}  {i ii : I} (h : i = T (p_hd::p_tl) ii i) : i = T p_tl ii i  := 
+  le_antisymm T_increasing (sup_le_iff.mp (le_antisymm_iff.mp h).right).right
+
+lemma T_fp_rule_sat_iff {p : Program} {i ii : I} : i = T p ii i ↔ ∀ {r : Rule} (mem : r ∈ p), r.reduct_satisfied i ii := begin
+  split; assume h,
+  induction p,
+  by_contradiction, finish,
+  assume r rmem,
+  cases rmem,
+  change i = (i.assign p_hd.head (p_hd.eval_body i ii)) ⊔ (xT_propagate i ii p_tl) at h,
+  rw <- rmem at h,
+  
+  exact sorry,
+  
+  exact p_ih (T_fp_eq_unstep h) rmem,
+
+end
+
+-- lemma T_
 
 -- Every model is a fixpoint of T
 lemma T_model_fp {p : Program} {i : I} : p.model i ↔ i = T p i i := begin
@@ -407,12 +426,18 @@ lemma T_model_fp {p : Program} {i : I} : p.model i ↔ i = T p i i := begin
   exact sorry,
   fconstructor, assume (r : Rule) (m : r ∈ p), change r.eval_body i i <= r.eval_head i,
   by_contradiction ch, rw not_le at ch,
-  refine (lt_self_iff_false i).mp _,
-  refine I.less_than.mk rfl.le _,
-  refine Exists.intro r.head _,
-  -- Need some list recursion library magic?
-  -- We can show that i
+  induction p, exact m,
+
+  -- refine (lt_self_iff_false (r.eval_head i)).mp _,
+  cases m,
+  rw m at ch,
+
+  exact sorry,
+  exact p_ih (T_fp_eq_unstep h) m,
 end
+
+
+
 
 lemma fuck {α : Type} {a b : α} [linear_order α] (p : a = b) (p2 : a < b) : false := begin
 hint,
