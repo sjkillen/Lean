@@ -403,7 +403,7 @@ end
 lemma T_fp_eq_unstep {p_tl : Program} {p_hd : Rule}  {i ii : I} (h : i = T (p_hd::p_tl) ii i) : i = T p_tl ii i  := 
   le_antisymm T_increasing (sup_le_iff.mp (le_antisymm_iff.mp h).right).right
 
-lemma T_fp_rule_sat_iff {p : Program} {i ii : I} : i = T p ii i ↔ ∀ {r : Rule} (mem : r ∈ p), r.reduct_satisfied i ii := begin
+lemma T_fp_rule_sat_iff {p : Program} {i ii : I} : i = T p ii i ↔ ∀ r ∈ p, Rule.reduct_satisfied r i ii := begin
   -- ==>
   split; assume h,
   induction p,
@@ -414,7 +414,7 @@ lemma T_fp_rule_sat_iff {p : Program} {i ii : I} : i = T p ii i ↔ ∀ {r : Rul
   change i = (λ b, if r.head = b then (r.eval_body i ii) else i b) ⊔ (xT_propagate i ii p_tl) at h,  
   cases r.eval_body i ii,
   any_goals { rw h, unfold Rule.eval_head, refine le_sup_iff.mpr _, left, simp },
-  exact p_ih (T_fp_eq_unstep h) rmem,
+  exact p_ih (T_fp_eq_unstep h) r rmem,
   -- <==
   refine le_antisymm T_increasing _,
   induction p, 
@@ -431,78 +431,64 @@ lemma T_fp_rule_sat_iff {p : Program} {i ii : I} : i = T p ii i ↔ ∀ {r : Rul
   refine p_ih _, simp at *, assume r rmem, exact h.right r rmem,
 end
 
--- #check sup_iff
--- lemma T_
+theorem T_fp_model_iff {p : Program} {i : I} : i = T p i i ↔ p.model i :=
+  (iff.intro (λ h, ⟨ T_fp_rule_sat_iff.mp h ⟩)
+             (λ h, T_fp_rule_sat_iff.mpr h.p))
 
--- Every model is a fixpoint of T
-lemma T_model_fp {p : Program} {i : I} : p.model i ↔ i = T p i i := begin
-  split; assume h,
-  exact sorry,
-  fconstructor, assume (r : Rule) (m : r ∈ p), change r.eval_body i i <= r.eval_head i,
-  by_contradiction ch, rw not_le at ch,
-  induction p, exact m,
 
-  -- refine (lt_self_iff_false (r.eval_head i)).mp _,
-  cases m,
-  rw m at ch,
 
-  exact sorry,
-  exact p_ih (T_fp_eq_unstep h) m,
+
+#check nonempty
+lemma fuck {p : Program} {i : I} (k : i = Inf {a : I | (T p i) a ≤ a}) : (T p i) i = i := begin
+  let z := {a : I | (T p i) a ≤ a},
+  have nem : nonempty {a : I | (T p i) a ≤ a} := sorry,
+  have y := Inf_mem {a : I | (T p i) a ≤ a},
+  -- Do I have to show that it's non empty? I can do that? because i
+
 end
 
 
+theorem T_fp_stable_model_iff {p : Program} {i : I}: i = lfp (T p i) ↔ p.stable_model i := begin
+split; assume h,
+unfold lfp at h, simp at h,
+change i = Inf {a : I | (T p i) a = a} at h,
+have i_fp : (T p i) i = i := begin
+  suggest,
+end,
+refine Program.stable_model.mk (T_fp_model_iff.mp h) _,
 
-
-lemma fuck {α : Type} {a b : α} [linear_order α] (p : a = b) (p2 : a < b) : false := begin
-hint,
-end
-
-
-lemma test {p : Program} {i : I}  : T_propagate p i (Inf {ii : I | T_propagate p i ii <= ii }) = Inf {ii : I | T_propagate p i ii <= ii }  := begin
-refine funext _, assume a,
-end
-
-lemma T_model_fp' {p : Program} {i : I} (model : p.model i) : i ∈ {a : I | T_propagate p i a ≤ a} := begin
-  sorry
-end
-
-
-#check  order_hom.lfp_induction
--- DOn't think I need model here
-theorem T_stable_model {p : Program} {i : I} (model : p.model i) : p.stable_model i ↔ i = lfp (T p i) := begin
-split,
-all_goals { assume h },
-unfold_coes, unfold lfp, simp, unfold_coes, unfold T, simp,
-by_contradiction u,
-let jj := i ⊓ Inf {a : I | T_propagate p i a ≤ a},
-let j : jj < i := sorry,
-have pp := h.p jj j,
+-- all_goals { assume h },
+-- unfold_coes, unfold lfp, simp, unfold_coes, unfold T, simp,
+-- by_contradiction u,
+-- let jj := i ⊓ Inf {a : I | T_propagate p i a ≤ a},
+-- let j : jj < i := sorry,
+-- have pp := h.p jj j,
 
 
 
-exact sorry,
--- simp,
-refine Inf_le_of_le _ _,
-assume b bm,
+-- exact sorry,
+-- -- simp,
+-- refine Inf_le_of_le _ _,
+-- assume b bm,
 
-exact sorry,
-exact Inf_le (T_model_fp' model),
+-- exact sorry,
+-- exact Inf_le (T_model_fp' model),
 
--- by_contradiction q, simp at q,
--- simp at q,
-exact sorry,
--- Eliminate the Inf :)
--- simp,
-assume b tp,
+-- -- by_contradiction q, simp at q,
+-- -- simp at q,
+-- exact sorry,
+-- -- Eliminate the Inf :)
+-- -- simp,
+-- assume b tp,
 
 
-exact sorry,
-fconstructor, assumption,
-assume ii ii_lt_i,
-by_contradiction,
-have u := h.p,
-have uy := model.p,
-sorry
+-- exact sorry,
+-- fconstructor, assumption,
+-- assume ii ii_lt_i,
+-- by_contradiction,
+-- have u := h.p,
+-- have uy := model.p,
+-- sorry
 end
 variable p : Program
 variable i : I
