@@ -1,54 +1,38 @@
+/-
+Defines truth values, atoms and interpretations
+Defines the orderings for these types and provides mathlib instances for complete_lattices
+Most of this file is uninterestingexcept for the first three definitions
+Interpretations here are not bound to a particular program so most operations are undecidable
+For a more restricted interpretation, see program.lean
+-/ 
 
 import data.fintype.order
 import data.nat.basic -- Some basic simps
 import order.complete_lattice
-import order.fixed_points
 open list
-open order_hom
-open function (fixed_points is_fixed_pt)
 
-set_option trace.simplify.rewrite true
-
+-- set_option trace.simplify.rewrite true
 
 inductive tv
 | vtrue
 | vundef
 | vfalse
 open tv
+def atom := ℕ
+def I := atom -> tv
 
 namespace tv
   @[simp] def to_nat (a : tv) : ℕ := tv.cases_on a 3 2 1
+  lemma to_nat.inj : function.injective to_nat := λ a b eq, begin
+    cases a; cases b,
+    any_goals {refl}, all_goals {simp at eq, contradiction},
+  end
   @[simp] lemma tv_unnat_eq {a b : tv} : (tv.to_nat a) = (tv.to_nat b) <-> a = b :=  begin
       split, all_goals { assume h, cases a; cases b; simp at |- h; contradiction },
   end
 
-  @[reducible] def le (a b : tv) : Prop := nat.le (tv.to_nat a) (tv.to_nat b)
-  @[reducible] def lt (a b : tv) : Prop := nat.lt (tv.to_nat a) (tv.to_nat b)
-  instance : has_le tv := ⟨le⟩
-  instance : has_lt tv := ⟨lt⟩
+  instance linear_order : linear_order tv := linear_order.lift tv.to_nat tv.to_nat.inj
 
-  -- Lemmas for the linear order on tv
-  -- that uses the mapping to_nat and the standard linear ordering on nat
-  @[refl] lemma le_refl (a : tv) : a <= a := nat.le_refl (tv.to_nat a)
-  @[trans] lemma le_trans {n m k : tv} (h1 : n ≤ m) : m ≤ k → n ≤ k := λ h2, nat.le_trans h1 h2
-  lemma le_antisymm {n m : tv} (h1 : n ≤ m) : m ≤ n → n = m :=  λ h2, tv_unnat_eq.mp (nat.le_antisymm h1 h2)
-  lemma le_total {m n : tv} : m ≤ n ∨ n ≤ m := nat.le_total
-  lemma lt_iff_le_not_le {m n : tv} : m < n ↔ (m ≤ n ∧ ¬ n ≤ m) := nat.lt_iff_le_not_le 
-  instance decidable_lt : ∀ a b : tv, decidable (a < b) := λ a b, nat.decidable_lt (tv.to_nat a) (tv.to_nat b)
-  instance decidable_le : ∀ a b : tv, decidable (a ≤ b):= λ a b, nat.decidable_le (tv.to_nat a) (tv.to_nat b)
-  instance decidable_eq : decidable_eq tv := λ a b, by { rw <- tv_unnat_eq, apply nat.decidable_eq }
-  instance linear_order : linear_order tv :=
-  { le := le,
-    le_refl := tv.le_refl,
-    le_trans := @tv.le_trans,
-    le_antisymm := @tv.le_antisymm,
-    le_total := @tv.le_total,
-    lt := lt,
-    lt_iff_le_not_le := @tv.lt_iff_le_not_le,
-    decidable_le               := tv.decidable_le,
-    -- These fields are optional but easy enough to define
-    decidable_lt               := tv.decidable_lt,
-    decidable_eq               := tv.decidable_eq }
   -- There are finite truth values
   instance fintype : fintype tv := {
     elems := {vfalse, vundef, vtrue},
@@ -96,9 +80,10 @@ namespace tv
   noncomputable instance has_Inf : has_Inf tv := ⟨tv.Inf⟩
 end tv
 
+namespace atom
+  instance decidable_eq : decidable_eq atom := nat.decidable_eq
+end atom
 
-def atom := ℕ
-def I := atom -> tv
 
 namespace I
   structure less_than_or_equal  (i1 : I) (i2 : I) : Prop :=
@@ -141,12 +126,10 @@ namespace I
     le_antisymm := @le_antisymm,
     lt_iff_le_not_le := @lt_iff_le_not_le }
 
-
   def top (a : atom) : tv := vtrue
   lemma le_top (i : I) : i <= I.top := I.less_than_or_equal.mk (λ a : atom, tv.le_top (i a))
   def bot (a : atom) : tv := vfalse
   lemma bot_le (i : I) : I.less_than_or_equal I.bot i := I.less_than_or_equal.mk (λ a, tv.bot_le (i a))
-
 
   instance bounded_order : bounded_order I := {
     top := I.top,
@@ -166,8 +149,6 @@ namespace I
   @[simp] lemma le_inf (a b c : I) : a <= b -> a <= c -> a <= b ⊓ c := (λ h g, ⟨(λ x, le_min (h.p x) (g.p x))⟩)
   @[simp] lemma inf_le_right (a b : I) : a ⊓ b <= b:= ⟨λ x, min_le_right (a x) (b x)⟩
   @[simp] lemma inf_le_left (a b : I) : a ⊓ b <= a  := ⟨λ x, min_le_left (a x) (b x)⟩
-
-
 
   @[reducible] 
   noncomputable def Sup (S : set I) : I := λ a, tv.Sup (set.image (λ i : I, i a) S)
@@ -227,8 +208,8 @@ namespace I
     inf_le_right := I.inf_le_right,
     inf_le_left := I.inf_le_left,
     Sup := I.Sup,
-    le_Sup := le_Sup,
-    Sup_le := Sup_le,
+    le_Sup := I.le_Sup,
+    Sup_le := I.Sup_le,
     Inf := I.Inf,
     le_Inf := I.le_Inf,
     Inf_le := I.Inf_le,
@@ -284,159 +265,4 @@ namespace I
 end I
 
 
-structure Rule :=
-  (head : atom)
-  (pbody : list atom)
-  (nbody : list atom)
 
-namespace Rule
-  def eval_pbody (self : Rule) (i : I) : tv := tv.conj (i.eval self.pbody) 
-  def eval_nbody (self : Rule) (i : I) : tv := tv.conj (tv.negl (i.eval self.nbody))
-  def eval_body (self : Rule) (i_pos i_neg : I) : tv := (self.eval_pbody i_pos) ⊓ (self.eval_nbody i_neg)
-  def eval_head (self : Rule) (i : I) : tv := i self.head
-
-  -- TODO clean this up somehow
-  @[simp] def eval_pbody_monotone (r : Rule) : monotone r.eval_pbody := λ a b c, begin
-    unfold Rule.eval_pbody,
-    induction r.pbody, exact rfl.ge,
-    unfold tv.conj at |- ih, unfold tv.inf at |- ih,
-    rw [I.unfold_eval a, I.unfold_eval b],
-    have t : ⊤ = vtrue := by { refl },
-    have rd_a := tv.foldl_remove_default (a hd),
-    have rd_b := tv.foldl_remove_default (b hd),
-    rw t at rd_a rd_b, rw [rd_a, rd_b], rw [@tv.foldl_min_extract (a hd), @tv.foldl_min_extract (b hd)],
-    exact min_le_min (c.p hd) ih,
-  end
-
-  def eval_body_monotone (r : Rule) (i_neg : I) : monotone (λ i_pos, r.eval_body i_pos i_neg) :=
-      λ a b c, inf_le_inf (eval_pbody_monotone r c) (rfl.ge)
-
-  def reduct_satisfied (r : Rule) (i_pos i_neg : I) : Prop := r.eval_body i_pos i_neg <= r.eval_head i_pos
-  def satisfied (r : Rule) (i : I) := r.reduct_satisfied i i
-end Rule
-
-def Program := list Rule
-instance : has_mem Rule Program := ⟨@list.mem Rule⟩ 
-namespace Program
-  structure reduct_model (self : Program) (i_pos i_neg : I) : Prop :=
-    (p : ∀r ∈ self, Rule.reduct_satisfied r i_pos i_neg)
-  def model (self : Program) (i : I) := self.reduct_model i i
-  structure stable_model (self : Program) (i : I) : Prop :=
-    (m : self.model i)
-    (p : ∀ii < i, ¬(self.reduct_model ii i))
-end Program
-
-def xT_propagate (i_pos i_neg : I) : Program -> I
-| [] := i_pos
-| (r::p) := (i_pos.assign r.head (r.eval_body i_pos i_neg)) ⊔ (xT_propagate p)
-
-def T_propagate (p : Program) (i_neg i_pos : I) : I := xT_propagate i_pos i_neg p
-
-
-theorem T_monotone (p : Program) (i_neg : I) : monotone (T_propagate p i_neg) := λ a b c, begin
-  induction p,
-  exact c,
-  refine sup_le_sup _ p_ih,
-  refine I.assign_step c _,
-  exact Rule.eval_body_monotone p_hd i_neg c,
-end
-
-def T (p : Program) (i_neg : I) : I →o I := ⟨T_propagate p i_neg, T_monotone p i_neg⟩
-
-
-lemma T_increasing {p : Program} {i ii : I} : ii <= T p i ii := begin
-  induction p, refl,
-  exact le_sup_of_le_right p_ih,
-end
-
-
-@[simp] lemma  T_fp_le_eq_iff {p : Program} {i ii : I} : T p i ii <= ii ↔ T p i ii = ii := 
-  (iff.intro (λ h, le_antisymm h T_increasing) (λ h, (eq.symm h).ge))
-
-lemma T_fp_eq_unstep {p_tl : Program} {p_hd : Rule}  {i ii : I} (h : i = T (p_hd::p_tl) ii i) : i = T p_tl ii i  := 
-  le_antisymm T_increasing (sup_le_iff.mp (le_antisymm_iff.mp h).right).right
-
-lemma T_fp_rule_sat_iff {p : Program} {i ii : I} : i = T p ii i ↔ ∀ r ∈ p, Rule.reduct_satisfied r i ii := begin
-  -- ==>
-  split; assume h,
-  induction p,
-  by_contradiction, finish,
-  assume r rmem,
-  change r.eval_body i ii <= r.eval_head i,
-  cases rmem, rw <- rmem at h,
-  change i = (λ b, if r.head = b then (r.eval_body i ii) else i b) ⊔ (xT_propagate i ii p_tl) at h,  
-  cases r.eval_body i ii,
-  any_goals { rw h, unfold Rule.eval_head, refine le_sup_iff.mpr _, left, simp },
-  exact p_ih (T_fp_eq_unstep h) r rmem,
-  -- <==
-  refine le_antisymm T_increasing _,
-  induction p, 
-  exact rfl.ge,
-  change (i.assign p_hd.head (p_hd.eval_body i ii)) ⊔ (xT_propagate i ii p_tl) <= i,
-  apply sup_le_iff.mpr,
-  split,
-  have h2 := @h p_hd (or.inl rfl), change p_hd.eval_body i ii <= p_hd.eval_head i at h2,
-  unfold I.assign,
-  refine I.less_than_or_equal.mk _, assume a,
-  split_ifs,
-  rw <- h_1, exact h2,
-  exact rfl.le,
-  refine p_ih _, simp at *, assume r rmem, exact h.right r rmem,
-end
-
-theorem T_fp_model_iff {p : Program} {i : I} : i = T p i i ↔ p.model i :=
-  (iff.intro (λ h, ⟨ T_fp_rule_sat_iff.mp h ⟩)
-             (λ h, T_fp_rule_sat_iff.mpr h.p))
-
-
-
-
-
-lemma fuck {p : Program} {i ii : I} (k : i = Inf {a : I | (T p ii) a ≤ a}) : (T p ii) i = i := begin
-  refine le_antisymm _ _,
-  rw k,
-  
-end
-
-theorem T_fp_stable_model_iff {p : Program} {i : I}: i = lfp (T p i) ↔ p.stable_model i := begin
-split; assume h,
-unfold lfp at h, simp at h,
-change i = Inf {a : I | (T p i) a = a} at h,
-have i_fp : (T p i) i = i := begin
-  suggest,
-end,
-refine Program.stable_model.mk (T_fp_model_iff.mp h) _,
-
--- all_goals { assume h },
--- unfold_coes, unfold lfp, simp, unfold_coes, unfold T, simp,
--- by_contradiction u,
--- let jj := i ⊓ Inf {a : I | T_propagate p i a ≤ a},
--- let j : jj < i := sorry,
--- have pp := h.p jj j,
-
-
-
--- exact sorry,
--- -- simp,
--- refine Inf_le_of_le _ _,
--- assume b bm,
-
--- exact sorry,
--- exact Inf_le (T_model_fp' model),
-
--- -- by_contradiction q, simp at q,
--- -- simp at q,
--- exact sorry,
--- -- Eliminate the Inf :)
--- -- simp,
--- assume b tp,
-
-
--- exact sorry,
--- fconstructor, assumption,
--- assume ii ii_lt_i,
--- by_contradiction,
--- have u := h.p,
--- have uy := model.p,
--- sorry
-end
