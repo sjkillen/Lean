@@ -3,6 +3,7 @@ Defines a normal ASP program and its three-valued semantics
 -/
 
 import primitives
+import misc
 open tv
 open order_hom
 open atom
@@ -56,6 +57,7 @@ namespace Program
     a : atom | ∃ (r : Rule) (m : r ∈ p), a = r.head ∨ a ∈ r.pbody ∨ a ∈ r.nbody
   }
 
+
   def atoms_list : Program -> list atom
   | [] := []
   | (r::tl) := (r.head::(r.pbody ++ r.nbody)) ++ (atoms_list tl)
@@ -66,6 +68,9 @@ instance program_atom_mem_decidable {p : Program} {a : atom} : decidable (a ∈ 
   rw (@atoms_atoms_list_mem_iff p a),
   exact @list.decidable_mem atom atom.decidable_eq a p.atoms_list
 end 
+
+
+-- lemma external_atom (p : Program) : ∃ a : atom, a ∉ p.atoms := sorry
 
   -- An interpretation bound to a program p
   @[ext]
@@ -193,7 +198,6 @@ end
   exact I.inf_le_left a b,
 end
 
-
 instance {p : Program} : has_coe (set p.I) (set I) := ⟨set.image Program.I.i⟩
 
 @[reducible] 
@@ -225,6 +229,21 @@ end
   unfold Program.I.i, simp, finish,
 end
 
+@[simp] lemma Program.I.I_upcast {p : Program} {o : I} {pi : p.I} : o = pi.i  -> (p.localize o).i = o := begin
+  assume h, ext, unfold Program.I.i at |- h, have hh := function.funext_iff.mp h x, split_ifs at |- hh,
+  refl, symmetry, exact hh,
+end
+
+lemma Program.I.I_mem_upcast_exists {p : Program} {o : I} {S : set p.I} (omem : o ∈ (Program.I.i '' S)) : ∃ pi : p.I, o = pi.i := begin
+  rw set.mem_image at omem, cases omem with pi b,
+  exact Exists.intro pi b.right.symm,
+end
+
+ lemma Program.I.I_mem_upcast {p : Program} {o : I} {S : set p.I} (omem : o ∈ (Program.I.i '' S)) : (p.localize o) ∈ S := begin
+  rw set.mem_image at omem, cases omem with pi b,
+  rw [<-b.right, Program.I_eq_PI], exact b.left,
+end
+
 
 
 lemma Program.I.le_Sup {p : Program} (S : set p.I) (i : p.I) (m : i ∈ S) : i <= (Program.I.Sup S) := begin
@@ -232,26 +251,70 @@ lemma Program.I.le_Sup {p : Program} (S : set p.I) (i : p.I) (m : i ∈ S) : i <
   rw [<-Program.I.Sup_distrib, Program.I_eq_PI, Program.I.Sup_distrib],
   exact I.le_Sup S i (set.mem_image_of_mem (Program.I.i) m),
 end
--- Too tired for this lol
+
 lemma Program.I.Sup_le {p : Program} (S : set p.I) (i : p.I) (pp : ∀ o ∈ S, o <= i) : (Program.I.Sup S) <= i := begin
   have h := I.Sup_le S i (λ o omem, begin
-    -- have hh := 
-    have g := pp (p.localize o),
-    have t : p.localize o ∈ S := begin
-      sorry
+    have gg := pp (p.localize o) (Program.I.I_mem_upcast omem),
+    have j : (p.localize o).i = o := begin 
+      have y := Program.I.I_mem_upcast_exists omem,
+      cases y with p p2,
+      exact Program.I.I_upcast p2,
     end,
-    have gg := g t,
-    change (p.localize o).i ≤ i.i at gg,
-    change o <= i.i,
+    rw <-j, exact gg,
   end),
   change (p.localize $ I.Sup (Program.I.i '' S)).i <= i.i,
   rw [<-Program.I.Sup_distrib, Program.I_eq_PI, Program.I.Sup_distrib],
   exact h,
 end
-lemma Program.I.Inf_le {p : Program} (S : set p.I) (i : p.I) (m : i ∈ S) : (I.Inf S) <= i := sorry
-lemma Program.I.le_Inf {p : Program} (S : set p.I) (i : p.I) (pp : ∀ o ∈ S, i <= o) : i <= (Program.I.Inf S) := sorry
 
-#check set.mem_image_of_mem
+lemma Program.I.Inf_le {p : Program} (S : set p.I) (i : p.I) (m : i ∈ S) : (Program.I.Inf S) <= i := begin
+  change (p.localize $ I.Inf (Program.I.i '' S)).i <= i.i,
+  have distrib := Program.I.Inf_distrib (Exists.intro i m),
+  rw [<-distrib, Program.I_eq_PI, distrib],
+  exact I.Inf_le S i (set.mem_image_of_mem (Program.I.i) m),
+end
+
+
+
+-- lemma I_apply_Inf {p : Program} (S : set I) (x : atom) : (Inf S) x = (I.Inf ((λ i : I, i x) '' S))
+
+lemma Program.I.le_Inf {p : Program} (S : set p.I) (i : p.I) (pp : ∀ o ∈ S, i <= o) : i <= (Program.I.Inf S) := begin
+  have h := I.le_Inf S i (λ o omem, begin
+    have gg := pp (p.localize o) (Program.I.I_mem_upcast omem),
+    have j : (p.localize o).i = o := begin 
+      have y := Program.I.I_mem_upcast_exists omem,
+      cases y with p p2,
+      exact Program.I.I_upcast p2,
+    end,
+    rw <-j, exact gg,
+  end),
+
+  change i.i <= (p.localize $ I.Inf (Program.I.i '' S)).i,
+  -- have f3 : I.Inf (Program.I.i '' S) = I.Inf (Program.I.i '' (insert ⊤ S)) := begin
+  --   change I.Inf (Program.I.i '' S) = I.Inf (Program.I.i '' insert ⊤ S),
+  --   change Program.I.Inf S = Program.I.Inf (insert ⊤ S),
+  -- end,
+  have f3 : Inf S = Inf (insert ⊤ S) := Inf_insert_top S,
+  have f : (I.Inf (Program.I.i '' S)) = (I.Inf (Program.I.i '' insert ⊤ S)) := begin
+    change p.localize (I.Inf (Program.I.i '' S)) = p.localize (I.Inf (Program.I.i '' (insert ⊤ S))) at f3,
+    unfold Program.localize at f3, simp at *,
+    ext, rw function.funext_iff at f3,
+    by_cases x_p_mem : x ∈ p.atoms,
+    have f4 := f3 x,
+    rw function.funext_iff at f4,
+    have f5 := f4 x_p_mem,
+    exact f5,
+    unfold I.Inf,
+
+  sorry-- holy fuck this is hard
+
+  end,
+  have distrib := @Program.I.Inf_distrib p (insert ⊤ S) (Exists.intro ⊤ (set.mem_insert ⊤ S)),
+  rw [f, <-distrib, Program.I_eq_PI, distrib, <-f],
+  exact h,
+end
+
+
 
 -- We can't use function.injective.lattice to lift the lattice from I because Program.I.i destroys info in the interpretation
 
