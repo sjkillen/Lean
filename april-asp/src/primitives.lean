@@ -105,9 +105,9 @@ namespace I
 
   def le (i1 i2 : I) := I.less_than_or_equal i1 i2
   def lt (i1 i2 : I) := I.less_than i1 i2
-  @[refl] lemma le_refl (i : I) : i <= i := ⟨λ a, tv.le_refl (i a)⟩ 
-  @[trans] lemma le_trans {a b c : I} (h1 : a ≤ b) : b ≤ c → a ≤ c := λ h2, ⟨λ a, tv.le_trans (h1.p a) (h2.p a)⟩
-  lemma le_antisymm {n m : I} (h1 : n <= m) : m <= n -> n = m := λ h2, funext (λ a : atom, tv.le_antisymm (h1.p a) (h2.p a))
+  @[refl] lemma le_refl (i : I) : i <= i := ⟨λ a, le_refl (i a)⟩ 
+  @[trans] lemma le_trans {a b c : I} (h1 : a ≤ b) : b ≤ c → a ≤ c := λ h2, ⟨λ a, le_trans (h1.p a) (h2.p a)⟩
+  lemma le_antisymm {n m : I} (h1 : n <= m) : m <= n -> n = m := λ h2, funext (λ a : atom, le_antisymm (h1.p a) (h2.p a))
   lemma lt_iff_le_not_le {a b : I} : a < b ↔ (a ≤ b ∧ ¬ b ≤ a) := iff.intro
     (λ l, begin
       split, exact l.p,
