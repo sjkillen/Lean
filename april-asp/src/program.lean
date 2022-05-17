@@ -284,12 +284,11 @@ lemma Program.I.set_non_mem_eval {p : Program} {S : set p.I} {x : atom} (Snm : S
 end
 
 lemma Program.I.Inf_insert_top_outside { p : Program } {S : set p.I} : p.localize (I.Inf (Program.I.i '' S)) = p.localize (I.Inf (insert (@Program.I.top p) (Program.I.i '' S))) := begin
-
+sorry,
 end
 
 
 lemma Program.I.Inf_insert {p : Program} {S : set p.I} : p.localize (I.Inf (Program.I.i '' S)) = p.localize (I.Inf (Program.I.i '' (insert ⊤ S))) := begin
-
   have top_outside : p.localize (I.Inf (Program.I.i '' S)) = p.localize (I.Inf (insert Program.I.top (Program.I.i '' S))) := Program.I.Inf_insert_top_outside,
   rw top_outside,
   ext, unfold I.Inf,
@@ -319,6 +318,15 @@ lemma Program.I.Inf_insert {p : Program} {S : set p.I} : p.localize (I.Inf (Prog
   unfold Program.localize, simp,
   rw wo_Inf,
 end
+
+lemma Program.I.le_upcast {p : Program} {pi : p.I} {i : I} : pi.i <= i -> pi.i <= (p.localize i).i := λ h, begin
+  fconstructor, assume a,
+  have hh := h.p a, unfold Program.localize, unfold Program.I.i at |- hh,
+  split_ifs at |- hh,
+  exact hh, exact rfl.le,
+end
+
+
 lemma Program.I.le_Inf {p : Program} (S : set p.I) (i : p.I) (pp : ∀ o ∈ S, i <= o) : i <= Inf S := begin
   have h := I.le_Inf S i (λ o omem, begin
     have gg := pp (p.localize o) (Program.I.I_mem_upcast omem),
@@ -329,15 +337,7 @@ lemma Program.I.le_Inf {p : Program} (S : set p.I) (i : p.I) (pp : ∀ o ∈ S, 
     end,
     rw <-j, exact gg,
   end),
-  change i.i <= (p.localize $ I.Inf (Program.I.i '' S)).i,
-  have z : I.Inf (Program.I.i '' S) = (p.localize (I.Inf (Program.I.i '' S))).i := begin
-    rw Program.I.Inf_insert,
-    have distrib := @Program.I.Inf_distrib p (insert ⊤ S) (Exists.intro ⊤ (set.mem_insert ⊤ S)),
-    rw [<-distrib, Program.I_eq_PI, distrib],
-    sorry,
-  end,
-  --TODO left off here
-  rw <-z, exact h,
+  exact Program.I.le_upcast h,
 end
 
 
