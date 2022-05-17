@@ -15,9 +15,8 @@ structure Rule :=
 def Program := list Rule
 
 
-set_option trace.simplify.rewrite true
+-- set_option trace.simplify.rewrite true
 
-#check Inf_eq_bot
 
 namespace Rule
   def eval_pbody (self : Rule) (i : I) : tv := tv.conj (i.eval self.pbody) 
@@ -104,6 +103,7 @@ namespace Program
 end Program
 
 instance {p : Program} : has_coe p.I I := ⟨Program.I.i⟩
+instance {p : Program} : has_coe_to_fun p.I (λ _, I) := ⟨Program.I.i⟩
 def Program.I.sup {p : Program} (a b : p.I) : p.I := p.localize $ I.sup a b
 instance {p : Program} : has_sup p.I := ⟨@Program.I.sup p⟩
 def Program.I.inf {p : Program} (a b : p.I) : p.I := p.localize $ I.inf a b
@@ -116,8 +116,6 @@ instance Program.I.partial_order {p : Program} : partial_order p.I := partial_or
 
 def Program.I.less_than_or_equal (p : Program) := (@Program.I.partial_order p).le
 
-variable p : Program
-#check (@Program.I.partial_order p).le
 
 lemma Program.I.bot_eq_I_bot {p : Program} : (@Program.I.bot p).i = I.bot := by {ext, unfold Program.I.i, split_ifs; refl}
 
@@ -276,9 +274,52 @@ end
 
 
 
--- lemma I_apply_Inf {p : Program} (S : set I) (x : atom) : (Inf S) x = (I.Inf ((λ i : I, i x) '' S))
+lemma Program.I.non_mem_eval {p : Program} {pi : p.I} {x : atom} (xnmem : x ∉ p.atoms) : pi x = ⊥ := by { unfold_coes, unfold Program.I.i, split_ifs, refl }
 
-lemma Program.I.le_Inf {p : Program} (S : set p.I) (i : p.I) (pp : ∀ o ∈ S, i <= o) : i <= (Program.I.Inf S) := begin
+lemma Program.I.set_non_mem_eval {p : Program} {S : set p.I} {x : atom} (Snm : S.nonempty) (xnmem : x ∉ p.atoms) : (λ (i : I), i x) '' (Program.I.i '' S) = { ⊥ } := begin
+  ext, split; assume h,
+  all_goals {simp at |- h, cases h with pi h2},
+  rw <-h2.right, exact Program.I.non_mem_eval xnmem,
+  cases Snm with pi p, exact Exists.intro pi (and.intro p (Program.I.non_mem_eval xnmem)),
+end
+
+lemma Program.I.Inf_insert_top_outside { p : Program } {S : set p.I} : p.localize (I.Inf (Program.I.i '' S)) = p.localize (I.Inf (insert (@Program.I.top p) (Program.I.i '' S))) := begin
+
+end
+
+
+lemma Program.I.Inf_insert {p : Program} {S : set p.I} : p.localize (I.Inf (Program.I.i '' S)) = p.localize (I.Inf (Program.I.i '' (insert ⊤ S))) := begin
+
+  have top_outside : p.localize (I.Inf (Program.I.i '' S)) = p.localize (I.Inf (insert Program.I.top (Program.I.i '' S))) := Program.I.Inf_insert_top_outside,
+  rw top_outside,
+  ext, unfold I.Inf,
+  have wo_Inf : (λ (i : I), i x) '' insert (@Program.I.top p) (Program.I.i '' S) = (λ (i : I), i x) '' (Program.I.i '' (insert ⊤ S)) := begin
+    ext, unfold_coes, simp, split; assume h,
+    cases h with x2, 
+    have x_pi := p.localize x2,
+    cases h_h, cases h_h_left,
+    have l : p.localize x2 = ⊤ := begin
+      rw [h_h_left, Program.I_eq_PI], refl,
+    end,
+    refine Exists.intro (p.localize x2) _,
+    refine (and.intro (or.inl l) _),
+    rw [<-h_h_right, h_h_left, <-h_h_left, l, h_h_left], refl,
+    cases h_h_left with pi foo,
+    refine Exists.intro pi (and.intro (or.inr foo.left) _),
+    rw [foo.right, h_h_right],
+    cases h with pi cond,
+    cases cond, cases cond_left,
+    refine Exists.intro pi.i _, split, left,
+    rw cond_left, refl,
+    exact cond_right,
+    refine Exists.intro pi.i (and.intro (or.inr _) _),
+    exact Exists.intro pi (and.intro cond_left rfl),
+    exact cond_right,
+  end,
+  unfold Program.localize, simp,
+  rw wo_Inf,
+end
+lemma Program.I.le_Inf {p : Program} (S : set p.I) (i : p.I) (pp : ∀ o ∈ S, i <= o) : i <= Inf S := begin
   have h := I.le_Inf S i (λ o omem, begin
     have gg := pp (p.localize o) (Program.I.I_mem_upcast omem),
     have j : (p.localize o).i = o := begin 
@@ -288,38 +329,19 @@ lemma Program.I.le_Inf {p : Program} (S : set p.I) (i : p.I) (pp : ∀ o ∈ S, 
     end,
     rw <-j, exact gg,
   end),
-
   change i.i <= (p.localize $ I.Inf (Program.I.i '' S)).i,
-  -- have f3 : I.Inf (Program.I.i '' S) = I.Inf (Program.I.i '' (insert ⊤ S)) := begin
-  --   change I.Inf (Program.I.i '' S) = I.Inf (Program.I.i '' insert ⊤ S),
-  --   change Program.I.Inf S = Program.I.Inf (insert ⊤ S),
-  -- end,
-  have f3 : Inf S = Inf (insert ⊤ S) := Inf_insert_top S,
-  have f : (I.Inf (Program.I.i '' S)) = (I.Inf (Program.I.i '' insert ⊤ S)) := begin
-    change p.localize (I.Inf (Program.I.i '' S)) = p.localize (I.Inf (Program.I.i '' (insert ⊤ S))) at f3,
-    unfold Program.localize at f3, simp at *,
-    ext, rw function.funext_iff at f3,
-    by_cases x_p_mem : x ∈ p.atoms,
-    have f4 := f3 x,
-    rw function.funext_iff at f4,
-    have f5 := f4 x_p_mem,
-    exact f5,
-    unfold I.Inf,
-
-  sorry-- holy fuck this is hard
-
+  have z : I.Inf (Program.I.i '' S) = (p.localize (I.Inf (Program.I.i '' S))).i := begin
+    rw Program.I.Inf_insert,
+    have distrib := @Program.I.Inf_distrib p (insert ⊤ S) (Exists.intro ⊤ (set.mem_insert ⊤ S)),
+    rw [<-distrib, Program.I_eq_PI, distrib],
+    sorry,
   end,
-  have distrib := @Program.I.Inf_distrib p (insert ⊤ S) (Exists.intro ⊤ (set.mem_insert ⊤ S)),
-  rw [f, <-distrib, Program.I_eq_PI, distrib, <-f],
-  exact h,
+  --TODO left off here
+  rw <-z, exact h,
 end
 
 
 
--- We can't use function.injective.lattice to lift the lattice from I because Program.I.i destroys info in the interpretation
-
-
-#check partial_order.lift (@Program.I.i p) (@Program.I.i.inj p)
 
   -- @[reducible] noncomputable instance complete_lattice : complete_lattice I := {
   --   le := I.le,
@@ -341,21 +363,3 @@ end
   --   ..I.bounded_order,
   -- }
 
-
-#check distrib
-
-#check (@Program.I.i.inj p).lattice
-#check function.injective.lattice (@Program.I.i p) (@Program.I.i.inj p) (λ a b, begin
-  change (p.localize $ I.sup a b).i = a.i ⊔ b.i,
-  unfold_coes,
-  -- rw Program.I_eq_PI (a.i.sup b.i),
-  --  rw [<-Program.I_eq_PI a, <-Program.I_eq_PI b],
-   
-  -- ext,
-  -- unfold Program.I.i, split_ifs,  
-end) 
-instance {p : Program} : lattice p.I := 
-
-
-
-#check le_sup_iff.mpr

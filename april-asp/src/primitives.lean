@@ -159,6 +159,8 @@ namespace I
   @[reducible] 
   noncomputable instance has_Inf : has_Inf I := ⟨I.Inf⟩
 
+
+
   lemma le_Sup (S : set I) (i : I) (m : i ∈ S) : i <= (I.Sup S) := ⟨ λ a, begin
   let imager := (λ i : I, i a),
   let mapped_set := set.image imager S,

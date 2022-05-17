@@ -2,7 +2,7 @@
 
 import order.complete_lattice
 
-lemma Inf_insert_top {α : Type} [complete_lattice α] {S : set α) : Inf S = Inf (insert ⊤ S) := by {
+lemma Inf_insert_top {α : Type} [complete_lattice α] (S : set α) : Inf S = Inf (insert ⊤ S) := by {
   rw Inf_insert, exact le_antisymm (le_inf le_top rfl.le) inf_le_right
 }
 
