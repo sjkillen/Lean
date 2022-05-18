@@ -1,6 +1,8 @@
 import order.hom.complete_lattice
 import program
 import order.fixed_points
+import .complete_lattice.I
+import .complete_lattice.PI
 open tv
 open order_hom
 
@@ -10,7 +12,6 @@ open order_hom
 def xT_propagate (i_pos i_neg : I) : Program -> I
 | [] := i_pos
 | (r::p) := (i_pos.assign r.head (r.eval_body i_pos i_neg)) ⊔ (xT_propagate p)
-
 def T_propagate (p : Program) (i_neg i_pos : I) : I := xT_propagate i_pos i_neg p
 
 
@@ -70,13 +71,75 @@ theorem T_fp_model_iff {p : Program} {i : I} : i = T p i i ↔ p.model i :=
              (λ h, T_fp_rule_sat_iff.mpr h.p))
 
 
+def p_restricted {p : Program} (f : I -> I) (i : p.I) (u : ∀a ∉ p.atoms, i a = (f i) a) : f i = p.localize (f i) := begin
+  ext,
+  by_cases x ∉ p.atoms,
+  have uu := u x h,
+  rw <-uu,
+  unfold Program.localize,
+  unfold_coes, unfold Program.I.i,
+  simp,
+  split_ifs, refl,
+  simp at h,
+  unfold Program.localize,
+  change f ⇑i x = ((@Program.I.mk p (λ (a : atom) (amem : a ∈ p.atoms), f ⇑i a)).i x),
+  unfold Program.I.i, split_ifs, refl,
+end
+
+-- TODO lost in this definition is that the atom that witnesses  i < i is in face r.head
+-- Probably just need to decompose < unfornatunately
+lemma attribute_rule_to_growth (p : Program) (i_pos i_neg : I)
+  : i_pos < (T_propagate p i_neg) i_pos -> ∃ (r : Rule) (rmem : r ∈ p), (i_pos r.head) < (T_propagate p i_neg) i_pos r.head := sorry
 
 
+lemma T_PI_propagate.p_restricted {p : Program} {i_neg i_pos : p.I} 
+  : ∀ (a : atom), a ∉ p.atoms → i_pos a = T_propagate p i_neg.i i_pos a := begin
+    intros a cond,
+    contrapose cond,
+    simp,
+    have cond2 := ne.lt_or_lt cond,
+    cases cond2,
+    have j : i_pos.i <= T_propagate p i_neg.i i_pos.i := begin
+        -- Use monotone property
+        sorry
+    end,
+    have jh2 : i_pos.i < T_propagate p i_neg.i i_pos.i := ⟨j, Exists.intro a cond2⟩,
+    have u := attribute_rule_to_growth p i_pos i_neg jh2,
+    unfold_coes at u, unfold_coes at cond2,
 
-lemma fuck {p : Program} {i ii : I} (k : i = Inf {a : I | (T p ii) a ≤ a}) : (T p ii) i = i := begin
-  refine funext _, assume a,
+    -- have g : 
+    -- have h I.less_than_or_equal
+    -- have uu := u cond2,
+  --   unfold T_propagate, unfold xT_propagate,
+  --   apply le_antisymm,
+  --   apply le_sup_iff.mpr,
 
 end
+#check ne.lt_or_lt
+
+-- lemma search {α : Type} [complete_linear_order α] (a b : α) : ¬(a = b) -> a < b ∨ b < a := begin
+--   exact ne.lt_or_lt,
+-- end
+
+def T_PI_propagate {p : Program} (i_neg i_pos : p.I) : p.I := p.localize $ T_propagate p i_neg i_pos
+lemma T_propagate_eq_PI {p : Program} {i_neg i_pos : p.I} : T_propagate p i_neg.i i_pos.i = T_PI_propagate i_neg i_pos := 
+  p_restricted (T_propagate p i_neg.i) i_pos T_PI_propagate.p_restricted
+
+lemma T_PI_propagate.monotone {p : Program} (i_neg : p.I) : monotone (T_PI_propagate i_neg) := λ _ _ c, begin
+  have z := T_monotone p i_neg c,
+end
+def T_PI {p : Program} (i_neg : p.I) : p.I →o p.I := ⟨
+  (λ a, begin
+    have h := (@T_PI_propagate p i_neg) a,
+    
+  end)
+  
+  , T_PI_propagate.monotone i_neg⟩
+
+-- lemma fuck {p : Program} {i ii : I} (k : i = Inf {a : I | (T p ii) a ≤ a}) : (T p ii) i = i := begin
+--   refine funext _, assume a,
+
+-- end
 
 
 
