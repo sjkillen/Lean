@@ -1,6 +1,7 @@
 import ..primitives
 import ..program
 import ..misc
+import order.fixed_points
 open tv
 open order_hom
 open atom
@@ -263,3 +264,14 @@ end
     ..Program.I.partial_order,
     ..Program.I.bounded_order,
   }
+
+
+-- Possible route to simplifying derivation of complete lattice for p.I
+
+lemma Program.localize.monotone {p : Program} : monotone p.localize := sorry
+def localize {p : Program} : I →o I := ⟨λ i, p.localize i, λ _ _ h, Program.localize.monotone h⟩
+@[reducible]
+noncomputable def localize_lattice {p : Program} : complete_lattice (function.fixed_points (@localize p)) :=
+  fixed_points.function.fixed_points.complete_lattice localize
+
+def single_app_fixed_point {p : Program} : function.fixed_points (@localize p) = { i : I | ∃ j : I, @localize p j = i } := sorry
