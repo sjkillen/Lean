@@ -275,3 +275,20 @@ noncomputable def localize_lattice {p : Program} : complete_lattice (function.fi
   fixed_points.function.fixed_points.complete_lattice localize
 
 def single_app_fixed_point {p : Program} : function.fixed_points (@localize p) = { i : I | ∃ j : I, @localize p j = i } := sorry
+
+def h : nat := begin
+  have g : Program := sorry,
+  have lattice := @localize_lattice g,
+  rw single_app_fixed_point at lattice,
+  unfold_coes at lattice,
+
+end
+variable p : Program
+#check {x // x ∈ {i : I | ∃ (j : I), (@localize p).to_fun j = i}}
+#check p.I
+lemma fuck : {x // x ∈ {i : I | ∃ (j : I), (@localize p).to_fun j = i}} = p.I := begin
+-- The above might be a more conventient definition for  Program.I than the current one.
+end
+
+
+#check 

@@ -5,6 +5,7 @@ Defines a normal ASP program and its three-valued semantics
 import primitives
 import misc
 import .complete_lattice.I
+import order.fixed_points
 open tv
 open order_hom
 open atom
@@ -69,21 +70,35 @@ namespace Program
     exact @list.decidable_mem atom atom.decidable_eq a p.atoms_list
   end 
 
-  @[ext]
-  structure I (p : Program) :=
-    (e : Π (a : atom) (m : a ∈ p.atoms), tv)
+  -- @[ext]
+  -- structure I (p : Program) :=
+  --   (e : Π (a : atom) (m : a ∈ p.atoms), tv)
 end Program
 
 
 
-def Program.localize (p : Program) (i : I) : p.I := ⟨λ a amem, i a⟩ 
-def Program.I.i {p : Program} (pi : p.I) : I := λ a, (dite (a ∈ p.atoms)
-  (λ c, pi.e a c)
-  (λ a, vfalse))
+def localize (p : Program) (i : I) : I := λ a, if a ∈ p.atoms then i a else vfalse
+lemma localize.monotone {p : Program} : monotone $ localize p := λ _ _ c, I.less_than_or_equal.mk (λ a, begin
+  unfold localize, split_ifs,
+  exact c.p a, exact rfl.le,
+end)
+def Program.localize (p : Program) : I →o I := ⟨localize p, localize.monotone⟩
 
-instance {p : Program} : has_coe p.I I := ⟨Program.I.i⟩
-instance {p : Program} : has_coe_to_fun p.I (λ _, I) := ⟨Program.I.i⟩
-instance {p : Program} : has_coe (set p.I) (set I) := ⟨set.image Program.I.i⟩
+
+
+variable p : Program
+
+def Program.I (p : Program) := { i : I // i = p.localize i }
+lemma Program.localize_single_app_fixedpoint {p : Program} {i : I} : p.localize i = p.localize (p.localize i) := begin
+  ext, unfold_coes, simp, unfold_coes, unfold Program.localize, simp, unfold localize, split_ifs, all_goals {refl},
+end
+lemma all_fixedpoints {p : Program} : function.fixed_points (p.localize) == G := begin
+
+end
+def Program.I.mk {p : Program} (i : I) : p.I := subtype.mk (p.localize i) Program.localize_single_app_fixedpoint
+
+#check subtype.mk
+
 
 namespace Program
   @[simp] lemma I_eq_PI {p : Program} (pi : p.I) : (p.localize (pi.i)) = pi := begin
