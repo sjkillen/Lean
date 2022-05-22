@@ -19,6 +19,7 @@ inductive tv
 | vfalse
 open tv
 def atom := ℕ
+instance : inhabited atom := nat.inhabited
 def I := atom -> tv
 
 namespace tv

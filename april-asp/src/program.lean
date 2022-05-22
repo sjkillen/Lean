@@ -70,6 +70,20 @@ namespace Program
     exact @list.decidable_mem atom atom.decidable_eq a p.atoms_list
   end 
 
+  instance program_forall_atom_mem_decidable (p : Program) {prop : atom -> Prop} [decidable_pred prop] : decidable (∀ a ∈ p.atoms, prop a) := begin
+    by_cases ∀ a ∈ p.atoms_list, prop a,
+    apply decidable.is_true, intros a amem, 
+    exact h a ((atoms_atoms_list_mem_iff a).mp amem),
+    apply decidable.is_false, simp at |- h, cases h with x,
+    refine Exists.intro x (and.intro ((atoms_atoms_list_mem_iff x).mpr h_h.left) h_h.right),
+  end
+
+  instance program_exists_atom_mem_decidable (p : Program) {prop : atom -> Prop} [decidable_pred prop] : decidable (∃ a ∈ p.atoms, prop a) := begin
+    by_cases ∀ a ∈ p.atoms, ¬prop a,
+    apply decidable.is_false, simp, exact h,
+    apply decidable.is_true, simp at h, exact bex_def.mpr h,
+  end
+
 end Program
 
 
@@ -94,23 +108,16 @@ instance {p : Program} : has_coe_to_fun p.I (λ _, I) := ⟨λ pi, p.localize pi
   rw [function.funext_iff.mp i_prop a, function.funext_iff.mp ii_prop a],
   exact congr_fun (congr_arg subtype.val h) a,
 end
-
-
-instance f (a b : set nat) : decidable (a = b) := begin 
-  by_cases a = b,
-   exact decidable.is_true h,
-   exact decidable.is_false h,
-end
+lemma Program.I.not_mem_atom_vfalse {p : Program} {pi : p.I} {a : atom} (anmem : a ∉ p.atoms) : pi a = vfalse := by { unfold_coes, unfold Program.localize, simp, unfold localize, split_ifs, refl }
 
 instance {p : Program} : decidable_eq p.I := begin
-intros i1 i2,
-by_cases ∀ a : atom, i1 a = i2 a,
-
-apply decidable.is_true,
-apply Program.I.ext.mp,
-suggest,
--- generalize
--- generalize h : ((⇑i1 a = ⇑i2 a) = ∀a, ⇑i1 a = ⇑i2 a), 
+  intros i1 i2,
+  by_cases ∀ a ∈ p.atoms, i1 a = i2 a,
+  apply decidable.is_true,
+  apply Program.I.ext.mp, intro a,
+  by_cases h2 : a ∈ p.atoms, exact h a h2,
+  repeat {rw Program.I.not_mem_atom_vfalse h2},
+  apply decidable.is_false,
+  simp at h, rw <-Program.I.ext, simp, cases h with c,
+  exact Exists.intro c h_h.right,
 end
-
-#check arbitrary
