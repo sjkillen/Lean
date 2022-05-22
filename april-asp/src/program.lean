@@ -70,46 +70,47 @@ namespace Program
     exact @list.decidable_mem atom atom.decidable_eq a p.atoms_list
   end 
 
-  -- @[ext]
-  -- structure I (p : Program) :=
-  --   (e : Π (a : atom) (m : a ∈ p.atoms), tv)
 end Program
 
 
 
 def localize (p : Program) (i : I) : I := λ a, if a ∈ p.atoms then i a else vfalse
-lemma localize.monotone {p : Program} : monotone $ localize p := λ _ _ c, I.less_than_or_equal.mk (λ a, begin
-  unfold localize, split_ifs,
-  exact c.p a, exact rfl.le,
-end)
+lemma localize.monotone {p : Program} : monotone $ localize p := λ _ _ c, I.less_than_or_equal.mk (λ a, by {unfold localize, split_ifs, exact c.p a, exact rfl.le})
 def Program.localize (p : Program) : I →o I := ⟨localize p, localize.monotone⟩
-
-
-
-variable p : Program
-
-def Program.I (p : Program) := { i : I // i = p.localize i }
-lemma Program.localize_single_app_fixedpoint {p : Program} {i : I} : p.localize i = p.localize (p.localize i) := begin
-  ext, unfold_coes, simp, unfold_coes, unfold Program.localize, simp, unfold localize, split_ifs, all_goals {refl},
+def Program.I (p : Program) := { i : I // p.localize i = i }
+@[reducible] noncomputable instance Program.I.complete_lattice {p : Program} : complete_lattice p.I := fixed_points.function.fixed_points.complete_lattice p.localize
+lemma Program.localize_single_fixedpoint {p : Program} {i : I} : p.localize (p.localize i) = p.localize i := by {ext, unfold_coes, simp, unfold_coes, unfold Program.localize, simp, unfold localize, split_ifs, all_goals {refl}}
+def Program.I.mk {p : Program} (i : I) : p.I := subtype.mk (p.localize i) Program.localize_single_fixedpoint
+-- p.localize pi.val carries more info and may be more convenient. 
+-- Program.I.ext validates the correctness of this choice
+instance {p : Program} : has_coe_to_fun p.I (λ _, I) := ⟨λ pi, p.localize pi.val⟩
+@[ext] lemma Program.I.ext {p : Program} {i ii : p.I} : (∀ a : atom, i a = ii a) ↔ i = ii := begin
+  have i_prop := i.prop, unfold_coes at i_prop, 
+  have ii_prop := ii.prop, unfold_coes at ii_prop, 
+  split; intro h, unfold_coes at h,
+  rw [i_prop, ii_prop] at h,
+  ext, unfold_coes, exact h x,
+  intro a, unfold_coes,
+  rw [function.funext_iff.mp i_prop a, function.funext_iff.mp ii_prop a],
+  exact congr_fun (congr_arg subtype.val h) a,
 end
-lemma all_fixedpoints {p : Program} : function.fixed_points (p.localize) == G := begin
 
+
+instance f (a b : set nat) : decidable (a = b) := begin 
+  by_cases a = b,
+   exact decidable.is_true h,
+   exact decidable.is_false h,
 end
-def Program.I.mk {p : Program} (i : I) : p.I := subtype.mk (p.localize i) Program.localize_single_app_fixedpoint
 
-#check subtype.mk
+instance {p : Program} : decidable_eq p.I := begin
+intros i1 i2,
+by_cases ∀ a : atom, i1 a = i2 a,
 
+apply decidable.is_true,
+apply Program.I.ext.mp,
+suggest,
+-- generalize
+-- generalize h : ((⇑i1 a = ⇑i2 a) = ∀a, ⇑i1 a = ⇑i2 a), 
+end
 
-namespace Program
-  @[simp] lemma I_eq_PI {p : Program} (pi : p.I) : (p.localize (pi.i)) = pi := begin
-    ext a amem,
-    change dite (a ∈ p.atoms) (λ (c : a ∈ p.atoms), pi.e a c) (λ (a : a ∉ p.atoms), vfalse) = pi.e a amem,
-    split_ifs, refl,
-  end
-  lemma I.i.inj {p : Program} : function.injective (@Program.I.i p) := begin
-    assume pi1 pi2 pii_eq,
-    ext a amem,
-    rw [<-I_eq_PI pi1, <-I_eq_PI pi2, pii_eq],
-  end
-end Program
-
+#check arbitrary
