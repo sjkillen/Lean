@@ -2,11 +2,11 @@ import order.hom.complete_lattice
 import program
 import order.fixed_points
 import .complete_lattice.I
-import .complete_lattice.PI
+-- Shouldn't need anything from here anymore?
+-- import .complete_lattice.PI
 open tv
 open order_hom
 
-#check order_hom.lfp
 
 
 def xT_propagate (i_pos i_neg : I) : Program -> I
@@ -86,39 +86,62 @@ def p_restricted {p : Program} (f : I -> I) (i : p.I) (u : ∀a ∉ p.atoms, i a
   unfold Program.I.i, split_ifs, refl,
 end
 
+variable p : Program
+variable pi : p.I
+
+def Program.is_local_op (p : Program) (f : I -> I) := ∀ (i : I), f (p.localize i) = p.localize (f i)
+
+-- lemma T_fixpoint_ruleheads_iff {p : Program} {ii : I} {i : I} : i = (T p ii) i ↔ ∀ (r : Rule), r ∈ p → (T p ii) i r.head ≤ i r.head := begin
+--   split; intro h, rw <-h, intros _ _, exact rfl.le,
+--   refine le_antisymm T_increasing _, fconstructor,
+--   assume a,
+--   induction p, exact rfl.le,
+  
+--   -- unfold T, simp, unfold T_propagate, unfold xT_propagate,
+--   -- apply sup_le,
+
+-- end
+
+
+@[reducible] lemma T_growth_witness {p : Program} {ii : I} (i : I) : i < (T p ii) i -> ∃ (r : Rule) (rmem : r ∈ p), (i r.head) < ((T p ii) i) r.head := begin
+  by_contradiction, simp at h,
+  exact (eq_iff_le_not_lt.mp (T_fixpoint_ruleheads_iff.mpr h.right)).right h.left,
+end
+
+lemma T_is_local_op {p : Program} {ii : I} : p.is_local_op (T p ii) := begin
+  assume a,
+  by_contradiction,
+end
+
+
 -- TODO lost in this definition is that the atom that witnesses  i < i is in face r.head
 -- Probably just need to decompose < unfornatunately
-lemma attribute_rule_to_growth (p : Program) (i_pos i_neg : I)
-  : i_pos < (T_propagate p i_neg) i_pos -> ∃ (r : Rule) (rmem : r ∈ p), (i_pos r.head) < (T_propagate p i_neg) i_pos r.head := sorry
+-- lemma attribute_rule_to_growth (p : Program) (i_pos i_neg : I)
+--   : i_pos < (T_propagate p i_neg) i_pos -> ∃ (r : Rule) (rmem : r ∈ p), (i_pos r.head) < (T_propagate p i_neg) i_pos r.head := sorry
 
 
-lemma T_PI_propagate.p_restricted {p : Program} {i_neg i_pos : p.I} 
-  : ∀ (a : atom), a ∉ p.atoms → i_pos a = T_propagate p i_neg.i i_pos a := begin
-    intros a cond,
-    contrapose cond,
-    simp,
-    have cond2 := ne.lt_or_lt cond,
-    cases cond2,
-    have j : i_pos.i <= T_propagate p i_neg.i i_pos.i := begin
-        -- Use monotone property
-        sorry
-    end,
-    have jh2 : i_pos.i < T_propagate p i_neg.i i_pos.i := ⟨j, Exists.intro a cond2⟩,
-    have u := attribute_rule_to_growth p i_pos i_neg jh2,
-    unfold_coes at u, unfold_coes at cond2,
+-- lemma T_PI_propagate.p_restricted {p : Program} {i_neg i_pos : p.I} 
+--   : ∀ (a : atom), a ∉ p.atoms → i_pos a = T_propagate p i_neg.i i_pos a := begin
+--     intros a cond,
+--     contrapose cond,
+--     simp,
+--     have cond2 := ne.lt_or_lt cond,
+--     cases cond2,
+--     have j : i_pos.i <= T_propagate p i_neg.i i_pos.i := begin
+--         -- Use monotone property
+--         sorry
+--     end,
+--     have jh2 : i_pos.i < T_propagate p i_neg.i i_pos.i := ⟨j, Exists.intro a cond2⟩,
+--     have u := attribute_rule_to_growth p i_pos i_neg jh2,
+--     unfold_coes at u, unfold_coes at cond2,
 
-    -- have g : 
-    -- have h I.less_than_or_equal
-    -- have uu := u cond2,
-  --   unfold T_propagate, unfold xT_propagate,
-  --   apply le_antisymm,
-  --   apply le_sup_iff.mpr,
+--     -- have g : 
+--     -- have h I.less_than_or_equal
+--     -- have uu := u cond2,
+--   --   unfold T_propagate, unfold xT_propagate,
+--   --   apply le_antisymm,
+--   --   apply le_sup_iff.mpr,
 
-end
-#check ne.lt_or_lt
-
--- lemma search {α : Type} [complete_linear_order α] (a b : α) : ¬(a = b) -> a < b ∨ b < a := begin
---   exact ne.lt_or_lt,
 -- end
 
 def T_PI_propagate {p : Program} (i_neg i_pos : p.I) : p.I := p.localize $ T_propagate p i_neg i_pos

@@ -289,6 +289,3 @@ variable p : Program
 lemma fuck : {x // x ∈ {i : I | ∃ (j : I), (@localize p).to_fun j = i}} = p.I := begin
 -- The above might be a more conventient definition for  Program.I than the current one.
 end
-
-
-#check 
