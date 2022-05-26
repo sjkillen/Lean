@@ -86,10 +86,76 @@ def p_restricted {p : Program} (f : I -> I) (i : p.I) (u : ∀a ∉ p.atoms, i a
   unfold Program.I.i, split_ifs, refl,
 end
 
-variable p : Program
-variable pi : p.I
 
-def Program.is_local_op (p : Program) (f : I -> I) := ∀ (i : I), f (p.localize i) = p.localize (f i)
+def Program.is_local_op (p : Program) (f : I -> I) := ∀ {i : I}, p.localize (f i) = f (p.localize i)
+def Program.is_local_biop (p : Program) (f : I -> I -> I) := ∀ {i1 i2 : I}, p.localize (f i1 i2) = f (p.localize i1) (p.localize i2)
+
+
+lemma I.assign'.is_local_op {p : Program} (v : tv) {a : atom} (amem : a ∈ p.atoms) : p.is_local_op (I.assign' a v) := begin
+  assume i, unfold I.assign', unfold I.assign, ext,
+  unfold Program.localize, simp, unfold localize, split_ifs, repeat{refl},
+  rw h_1 at amem, contradiction, repeat{refl},
+end
+
+lemma I.sup_right.is_local_biop {p : Program} : p.is_local_biop I.sup := begin
+  intros i1 i2, ext a, unfold I.sup, unfold Program.localize, simp, unfold localize, split_ifs, repeat{refl},
+end
+
+lemma I.eval.unlocalize {p : Program} {i : I} {atoms : list atom} : (∀ a ∈ atoms, a ∈ p.atoms) -> (p.localize i).eval atoms = i.eval atoms := begin
+  intro all_atoms,
+  induction atoms, refl,
+  unfold I.eval, repeat {rw list.map_cons},
+  have atoms_hd_pmem : atoms_hd ∈ p.atoms := all_atoms atoms_hd (list.mem_cons_self atoms_hd atoms_tl),
+  have atoms_hd_unchanged : p.localize i atoms_hd = i atoms_hd := by {unfold Program.localize, simp, unfold localize, split_ifs, refl},
+  rw atoms_hd_unchanged,
+  have rest_eq : list.map ((p.localize) i) atoms_tl = list.map i atoms_tl := begin
+    apply atoms_ih, intros b bmem, apply all_atoms, exact list.mem_of_mem_tail bmem,
+  end,
+  rw rest_eq,
+end
+
+-- lemma tv.conj.unlocalize {p : Program} {i : I} {atoms : list atom} : (∀ a ∈ atoms, a ∈ p.atoms) -> tv.conj 
+
+lemma Rule.eval_pbody.unlocalize {p : Program} {r : Rule} (i : I) (pmem : r ∈ p) : r.eval_pbody (p.localize i) = r.eval_pbody i := by {
+  unfold Rule.eval_pbody, rw I.eval.unlocalize (r.atom_program_mem_pbody pmem) }
+lemma Rule.eval_nbody.unlocalize {p : Program} {r : Rule} (i : I) (pmem : r ∈ p) : r.eval_nbody (p.localize i) = r.eval_nbody i := by {
+  unfold Rule.eval_nbody, rw I.eval.unlocalize (r.atom_program_mem_nbody pmem) }
+lemma Rule.eval_body.unlocalize {p : Program} {r : Rule} (i ii : I) (pmem : r ∈ p) : r.eval_body (p.localize i) (p.localize ii) = r.eval_body i ii := by {
+  unfold Rule.eval_body, rw [Rule.eval_pbody.unlocalize i pmem, Rule.eval_nbody.unlocalize ii pmem]}
+lemma Rule.eval_body_pos.unlocalize {p : Program} {r : Rule} (i ii : I) (pmem : r ∈ p) : r.eval_body (p.localize i) ii = r.eval_body i ii := by {
+  unfold Rule.eval_body, rw [Rule.eval_pbody.unlocalize i pmem]}
+
+
+
+lemma T.is_local_op {p : Program} {ii : I} : p.is_local_op (T p ii) := begin
+  change ∀ a, (p.localize) ((T p ii) a) = (T p ii) ((p.localize) a),
+  have general_goal : ∀ (p2 : Program), p ⊆ p2 -> (∀ a, (p2.localize) ((T p ii) a) = (T p ii) ((p2.localize) a)) := begin
+    assume p2,
+    unfold T, simp, unfold T_propagate, induction p,
+    intros nsub x, refl,
+    unfold xT_propagate,
+    intros nsub a,
+    change (Program.localize p2) (I.sup (a.assign p_hd.head (p_hd.eval_body a ii)) (xT_propagate a ii p_tl)) =
+    ((Program.localize p2) a).assign p_hd.head
+        (p_hd.eval_body ((Program.localize p2) a) ii) ⊔
+      xT_propagate ((Program.localize p2) a) ii p_tl,
+    rw [I.sup_right.is_local_biop, I.assign_eq_assign', I.assign'.is_local_op],
+    have y : (Program.localize p2) (xT_propagate a ii (p_tl)) = xT_propagate ((Program.localize p2) a) ii (p_tl) := begin
+      sorry,
+    end,
+    rw y,
+    (I.assign' p_hd.head (p_hd.eval_body a ii) ((Program.localize (p_hd :: p_tl)) a)).sup (xT_propagate ((Program.localize (p_hd :: p_tl)) a) ii p_tl) =
+    (((Program.localize (p_hd :: p_tl)) a).assign p_hd.head (p_hd.eval_body ((Program.localize (p_hd :: p_tl)) a) ii)).sup (xT_propagate ((Program.localize (p_hd :: p_tl)) a) ii p_tl),
+    rw <-I.assign_eq_assign', rw Rule.eval_body_pos.unlocalize,
+    exact list.mem_cons_self p_hd p_tl,
+    refine Exists.intro p_hd (Exists.intro (list.mem_cons_self p_hd p_tl) _), left, refl,
+  end
+end
+
+
+lemma fuck (a b c d : I) : a = c ∧ b = d -> a ⊓ b = c ⊓ d := begin
+assume a, 
+end
 
 -- lemma T_fixpoint_ruleheads_iff {p : Program} {ii : I} {i : I} : i = (T p ii) i ↔ ∀ (r : Rule), r ∈ p → (T p ii) i r.head ≤ i r.head := begin
 --   split; intro h, rw <-h, intros _ _, exact rfl.le,
@@ -103,15 +169,12 @@ def Program.is_local_op (p : Program) (f : I -> I) := ∀ (i : I), f (p.localize
 -- end
 
 
-@[reducible] lemma T_growth_witness {p : Program} {ii : I} (i : I) : i < (T p ii) i -> ∃ (r : Rule) (rmem : r ∈ p), (i r.head) < ((T p ii) i) r.head := begin
-  by_contradiction, simp at h,
-  exact (eq_iff_le_not_lt.mp (T_fixpoint_ruleheads_iff.mpr h.right)).right h.left,
-end
+-- @[reducible] lemma T_growth_witness {p : Program} {ii : I} (i : I) : i < (T p ii) i -> ∃ (r : Rule) (rmem : r ∈ p), (i r.head) < ((T p ii) i) r.head := begin
+--   by_contradiction, simp at h,
+--   exact (eq_iff_le_not_lt.mp (T_fixpoint_ruleheads_iff.mpr h.right)).right h.left,
+-- end
 
-lemma T_is_local_op {p : Program} {ii : I} : p.is_local_op (T p ii) := begin
-  assume a,
-  by_contradiction,
-end
+
 
 
 -- TODO lost in this definition is that the atom that witnesses  i < i is in face r.head
@@ -144,25 +207,25 @@ end
 
 -- end
 
-def T_PI_propagate {p : Program} (i_neg i_pos : p.I) : p.I := p.localize $ T_propagate p i_neg i_pos
-lemma T_propagate_eq_PI {p : Program} {i_neg i_pos : p.I} : T_propagate p i_neg.i i_pos.i = T_PI_propagate i_neg i_pos := 
-  p_restricted (T_propagate p i_neg.i) i_pos T_PI_propagate.p_restricted
+-- def T_PI_propagate {p : Program} (i_neg i_pos : p.I) : p.I := p.localize $ T_propagate p i_neg i_pos
+-- lemma T_propagate_eq_PI {p : Program} {i_neg i_pos : p.I} : T_propagate p i_neg.i i_pos.i = T_PI_propagate i_neg i_pos := 
+--   p_restricted (T_propagate p i_neg.i) i_pos T_PI_propagate.p_restricted
 
-lemma T_PI_propagate.monotone {p : Program} (i_neg : p.I) : monotone (T_PI_propagate i_neg) := λ _ _ c, begin
-  have z := T_monotone p i_neg c,
-end
-def T_PI {p : Program} (i_neg : p.I) : p.I →o p.I := ⟨
-  (λ a, begin
-    have h := (@T_PI_propagate p i_neg) a,
-    
-  end)
-  
-  , T_PI_propagate.monotone i_neg⟩
-
--- lemma fuck {p : Program} {i ii : I} (k : i = Inf {a : I | (T p ii) a ≤ a}) : (T p ii) i = i := begin
---   refine funext _, assume a,
-
+-- lemma T_PI_propagate.monotone {p : Program} (i_neg : p.I) : monotone (T_PI_propagate i_neg) := λ _ _ c, begin
+--   have z := T_monotone p i_neg c,
 -- end
+-- def T_PI {p : Program} (i_neg : p.I) : p.I →o p.I := ⟨
+--   (λ a, begin
+--     have h := (@T_PI_propagate p i_neg) a,
+    
+--   end)
+  
+--   , T_PI_propagate.monotone i_neg⟩
+
+-- -- lemma fuck {p : Program} {i ii : I} (k : i = Inf {a : I | (T p ii) a ≤ a}) : (T p ii) i = i := begin
+-- --   refine funext _, assume a,
+
+-- -- end
 
 
 
