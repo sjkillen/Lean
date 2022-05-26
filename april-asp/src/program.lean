@@ -43,6 +43,7 @@ namespace Rule
 
   def reduct_satisfied (r : Rule) (i_pos i_neg : I) : Prop := r.eval_body i_pos i_neg <= r.eval_head i_pos
   def satisfied (r : Rule) (i : I) := r.reduct_satisfied i i
+
 end Rule
 
 instance : has_mem Rule Program := ⟨@list.mem Rule⟩ 
@@ -84,6 +85,8 @@ namespace Program
     apply decidable.is_true, simp at h, exact bex_def.mpr h,
   end
 
+  instance Program.has_subset : has_subset Program := list.has_subset
+
 end Program
 
 
@@ -121,3 +124,15 @@ instance {p : Program} : decidable_eq p.I := begin
   simp at h, rw <-Program.I.ext, simp, cases h with c,
   exact Exists.intro c h_h.right,
 end
+
+namespace Rule
+  lemma atom_program_mem_pbody {p : Program} (r : Rule) (rmem : r ∈ p) (a : atom) : a ∈ r.pbody -> a ∈ p.atoms := λ h, begin
+    refine Exists.intro r (Exists.intro rmem _),
+    right, left, exact h,
+  end
+  lemma atom_program_mem_nbody {p : Program} (r : Rule) (rmem : r ∈ p) (a : atom) : a ∈ r.nbody -> a ∈ p.atoms := λ h, begin
+    refine Exists.intro r (Exists.intro rmem _),
+    right, right, exact h,
+  end
+
+end Rule

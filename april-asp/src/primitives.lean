@@ -144,6 +144,9 @@ namespace I
   def eval (self : I) (atoms : list atom) : list tv := map self atoms
   lemma unfold_eval (self : I) {a : atom} {tl : list atom} : (self.eval (a::tl)) = (self a) :: (self.eval tl) := begin unfold I.eval, simp, end
   def assign (self : I) (a : atom) (v : tv) : I := λ b, if a = b then v else self b
+  def assign' (a : atom) (v : tv) : I -> I := λ i, i.assign a v
+  lemma assign_eq_assign' {i : I} {a : atom} {v : tv} : (i.assign a v) = I.assign' a v i := rfl
+
   lemma assign_noop (self : I) (c : atom) : self = self.assign c (self c) := begin
     unfold I.assign, ext1, split_ifs,
     exact congr_arg self (eq.symm h),
