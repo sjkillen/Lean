@@ -59,6 +59,12 @@ namespace Program
     a : atom | ∃ (r : Rule) (m : r ∈ p), a = r.head ∨ a ∈ r.pbody ∨ a ∈ r.nbody
   }
 
+  instance Program.has_subset : has_subset Program := list.has_subset
+
+  lemma subset_atoms_subset (p : Program) {p' : Program} (ss : p ⊆ p') : p.atoms ⊆ p'.atoms := λ a amem, begin
+    cases amem with r b, cases b with rmem,
+    exact Exists.intro r (Exists.intro (ss rmem) b_h),
+  end
 
   def atoms_list : Program -> list atom
   | [] := []
@@ -84,9 +90,6 @@ namespace Program
     apply decidable.is_false, simp, exact h,
     apply decidable.is_true, simp at h, exact bex_def.mpr h,
   end
-
-  instance Program.has_subset : has_subset Program := list.has_subset
-
 end Program
 
 
@@ -112,6 +115,8 @@ instance {p : Program} : has_coe_to_fun p.I (λ _, I) := ⟨λ pi, p.localize pi
   exact congr_fun (congr_arg subtype.val h) a,
 end
 lemma Program.I.not_mem_atom_vfalse {p : Program} {pi : p.I} {a : atom} (anmem : a ∉ p.atoms) : pi a = vfalse := by { unfold_coes, unfold Program.localize, simp, unfold localize, split_ifs, refl }
+
+instance Program.has_subset : has_subset Program := list.has_subset
 
 instance {p : Program} : decidable_eq p.I := begin
   intros i1 i2,
