@@ -123,7 +123,13 @@ lemma T.is_local_op {p : Program} {ii : I} : p.is_local_op (T p ii) := λ i, beg
   exact generalized rfl.subset,
 end
 
+@[reducible]
+def T_repeat (p : Program) (i_neg : I) : Π(i_pos : I), I
+| i := (T p i_neg) i
 
+def T_lfp (p : Program) (i_neg : I) := T_repeat p i_neg I.bot
+
+lemma fuck (p : Program) (i_neg : I) : lfp (T p i_neg) = T_lfp p i_neg := sorry
 
 theorem T_fp_stable_model_iff {p : Program} {i : I}: i = lfp (T p i) ↔ p.stable_model i := begin
 split; assume h,
