@@ -130,6 +130,23 @@ instance {p : Program} : decidable_eq p.I := begin
   exact Exists.intro c h_h.right,
 end
 
+-- def finset_interpretation {p.I} (fs : finset atom) : finset 
+
+
+-- #check [].to_finset
+
+-- instance {p : Program} : fintype p.I := begin
+--   let atoms_pow := p.atoms_list.to_finset.powerset,
+--   have atoms_pow2 := p.atoms_list.to_finset.powerset,
+--   have g := atoms_pow2.map (λ x, x),
+--   let interps := finset.map (λ x : finset atom, x) atoms_pow,
+
+--   refine fintype.mk _ _,
+--   have h := p.atoms_list,
+--   refine finset.mk _ _,
+-- end
+
+
 namespace Rule
   lemma atom_program_mem_pbody {p : Program} (r : Rule) (rmem : r ∈ p) (a : atom) : a ∈ r.pbody -> a ∈ p.atoms := λ h, begin
     refine Exists.intro r (Exists.intro rmem _),
@@ -139,5 +156,4 @@ namespace Rule
     refine Exists.intro r (Exists.intro rmem _),
     right, right, exact h,
   end
-
 end Rule
