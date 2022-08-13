@@ -97,6 +97,8 @@ end Program
 def localize (p : Program) (i : I) : I := λ a, if a ∈ p.atoms then i a else vfalse
 lemma localize.monotone {p : Program} : monotone $ localize p := λ _ _ c, I.less_than_or_equal.mk (λ a, by {unfold localize, split_ifs, exact c.p a, exact rfl.le})
 def Program.localize (p : Program) : I →o I := ⟨localize p, localize.monotone⟩
+
+
 def Program.I (p : Program) := { i : I // p.localize i = i }
 @[reducible] noncomputable instance Program.I.complete_lattice {p : Program} : complete_lattice p.I := fixed_points.function.fixed_points.complete_lattice p.localize
 lemma Program.localize_single_fixedpoint {p : Program} {i : I} : p.localize (p.localize i) = p.localize i := by {ext, unfold_coes, simp, unfold_coes, unfold Program.localize, simp, unfold localize, split_ifs, all_goals {refl}}
@@ -128,6 +130,30 @@ instance {p : Program} : decidable_eq p.I := begin
   apply decidable.is_false,
   simp at h, rw <-Program.I.ext, simp, cases h with c,
   exact Exists.intro c h_h.right,
+end
+
+
+
+def construct_all_interps {p : Program} : list p.I := sorry
+def all_interps_complete {p : Program} (i : p.I) : i ∈ (@construct_all_interps p) := sorry
+
+instance {p : Program} : fintype p.I := fintype.mk ((@construct_all_interps p).to_finset) (λ x, list.mem_to_finset.mpr (all_interps_complete x))
+
+
+
+instance Program.I.has_compl {p : Program} : has_compl p.I := begin
+  constructor, assume i, fconstructor,
+  exact p.localize (λ x : atom, -(i x)),
+  rw Program.localize_single_fixedpoint,
+end
+
+
+instance Program.I.is_complemented {p : Program} : is_complemented p.I := begin
+  fconstructor, assume a,
+  refine Exists.intro _ _,
+  exact aᶜ,
+  fconstructor,
+  fconstructor, assume x,
 end
 
 -- def finset_interpretation {p.I} (fs : finset atom) : finset 
