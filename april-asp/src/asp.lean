@@ -2,8 +2,6 @@ import order.hom.complete_lattice
 import program
 import order.fixed_points
 import .complete_lattice.I
--- Shouldn't need anything from here anymore?
--- import .complete_lattice.PI
 open tv
 open order_hom
 
@@ -125,22 +123,21 @@ end
 
 
 
-#check 
 
-@[reducible]
-def T_repeat (p : Program) (i_neg : I) : Π(i_pos : I), I
-| i := 
+-- @[reducible]
+-- def T_repeat (p : Program) (i_neg : I) : Π(i_pos : I), I
+-- | i := 
 
-def T_lfp (p : Program) (i_neg : I) := T_repeat p i_neg I.bot
+-- def T_lfp (p : Program) (i_neg : I) := T_repeat p i_neg I.bot
 
-theorem T_lfp_lattice_lfp_mp {p : Program} {ii : I} : lfp (T p ii) = T_lfp p ii := begin
+-- theorem T_lfp_lattice_lfp_mp {p : Program} {ii : I} : lfp (T p ii) = T_lfp p ii := begin
   
-end
+-- end
 
 
-example {p : Program} {i : I} : i = lfp (T p i) := begin
-  unfold_coes,
-end
+-- example {p : Program} {i : I} : i = lfp (T p i) := begin
+--   unfold_coes,
+-- end
 
 theorem T_fp_stable_model_iff {p : Program} {i : I}: i = lfp (T p i) ↔ p.stable_model i := begin
 split; assume h,
